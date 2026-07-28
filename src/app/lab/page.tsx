@@ -64,7 +64,7 @@ export default function Lab() {
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <Nav />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
+      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold tracking-tight">Adversarial Red-Team Lab</h1>
           <p className="mt-1 max-w-2xl text-sm text-black/60 dark:text-white/60">
@@ -100,7 +100,7 @@ export default function Lab() {
               <input
                 value={sender}
                 onChange={(e) => setSender(e.target.value)}
-                className="border border-black/30 bg-transparent px-3 py-2 outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
+                className="border border-black/30 bg-transparent px-3 py-2 focus:border-black dark:border-white/30 dark:focus:border-white"
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
@@ -108,7 +108,7 @@ export default function Lab() {
               <input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                className="border border-black/30 bg-transparent px-3 py-2 outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
+                className="border border-black/30 bg-transparent px-3 py-2 focus:border-black dark:border-white/30 dark:focus:border-white"
               />
             </label>
             <label className="flex flex-col gap-1.5 text-sm">
@@ -117,18 +117,23 @@ export default function Lab() {
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 rows={12}
-                className="border border-black/30 bg-transparent px-3 py-2 font-mono text-xs outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
+                className="border border-black/30 bg-transparent px-3 py-2 font-mono text-xs focus:border-black dark:border-white/30 dark:focus:border-white"
               />
             </label>
             <button
               type="button"
               onClick={run}
               disabled={loading}
+              aria-busy={loading}
               className="border border-black bg-black px-4 py-2.5 font-medium text-white hover:bg-black/80 disabled:opacity-50 dark:border-white dark:bg-white dark:text-black dark:hover:bg-white/80"
             >
               {loading ? "Running attack…" : "Run adversarial red-team"}
             </button>
-            {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
+            {error && (
+              <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+                {error}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-4">
@@ -142,13 +147,13 @@ export default function Lab() {
               <>
                 <div className="flex items-center justify-around border border-black/30 p-4 text-center dark:border-white/30">
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-black/50 dark:text-white/50">Start</p>
+                    <p className="text-xs uppercase tracking-wide text-black/60 dark:text-white/60">Start</p>
                     <p className={`text-3xl font-bold ${scoreColor(report.startScore)}`}>{report.startScore}</p>
                     <p className="text-xs">{report.startLevel}</p>
                   </div>
                   <div className="text-2xl text-black/30 dark:text-white/30">→</div>
                   <div>
-                    <p className="text-xs uppercase tracking-wide text-black/50 dark:text-white/50">Evaded</p>
+                    <p className="text-xs uppercase tracking-wide text-black/60 dark:text-white/60">Evaded</p>
                     <p className={`text-3xl font-bold ${scoreColor(report.finalScore)}`}>{report.finalScore}</p>
                     <p className="text-xs">{report.finalLevel}</p>
                   </div>
@@ -163,7 +168,7 @@ export default function Lab() {
                         </span>
                         <span className="font-mono text-xs">
                           <span className={scoreColor(step.scoreBefore)}>{step.scoreBefore}</span>
-                          <span className="text-black/40 dark:text-white/40"> → </span>
+                          <span className="text-black/60 dark:text-white/60"> → </span>
                           <span className={scoreColor(step.scoreAfter)}>{step.scoreAfter}</span>
                         </span>
                       </div>

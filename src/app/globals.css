@@ -21,3 +21,34 @@ body {
   background: var(--background);
   color: var(--foreground);
 }
+
+/* A single visible keyboard-focus indicator for every interactive element.
+   Mouse users never see it (:focus-visible), keyboard users always do — which
+   the per-field `outline-none` styling previously removed entirely. */
+:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* Off-screen until focused, so keyboard users can jump past the nav. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 50;
+  padding: 0.5rem 0.75rem;
+  background: var(--background);
+  color: var(--foreground);
+  border: 1px solid currentColor;
+}
+
+.skip-link:focus {
+  left: 0.5rem;
+  top: 0.5rem;
+}
+
+@media print {
+  .skip-link {
+    display: none;
+  }
+}

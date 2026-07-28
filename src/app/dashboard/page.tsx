@@ -55,7 +55,7 @@ export default function Dashboard() {
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <Nav />
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
+      <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-6 py-10">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Security dashboard</h1>
@@ -68,7 +68,7 @@ export default function Dashboard() {
             <select
               value={org}
               onChange={(e) => setOrg(e.target.value)}
-              className="border border-black/30 bg-transparent px-3 py-1.5 outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
+              className="border border-black/30 bg-transparent px-3 py-1.5 focus:border-black dark:border-white/30 dark:focus:border-white"
             >
               <option value="All">All organizations</option>
               {orgs.map((o) => (
@@ -115,24 +115,24 @@ export default function Dashboard() {
           <table className="w-full text-sm">
             <thead className="border-b border-black/30 text-left text-xs uppercase tracking-wide text-black/60 dark:border-white/30 dark:text-white/60">
               <tr>
-                <th className="px-4 py-3 font-medium">Time</th>
-                <th className="px-4 py-3 font-medium">Organization</th>
-                <th className="px-4 py-3 font-medium">Sender</th>
-                <th className="px-4 py-3 font-medium">Subject</th>
-                <th className="px-4 py-3 font-medium text-right">Score</th>
+                <th scope="col" className="px-4 py-3 font-medium">Time</th>
+                <th scope="col" className="px-4 py-3 font-medium">Organization</th>
+                <th scope="col" className="px-4 py-3 font-medium">Sender</th>
+                <th scope="col" className="px-4 py-3 font-medium">Subject</th>
+                <th scope="col" className="px-4 py-3 font-medium text-right">Score</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/15 dark:divide-white/15">
               {loading && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-black/50 dark:text-white/50">
+                  <td colSpan={5} className="px-4 py-6 text-center text-black/60 dark:text-white/60">
                     Loading…
                   </td>
                 </tr>
               )}
               {!loading && scans.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-black/50 dark:text-white/50">
+                  <td colSpan={5} className="px-4 py-6 text-center text-black/60 dark:text-white/60">
                     No scans yet.
                   </td>
                 </tr>

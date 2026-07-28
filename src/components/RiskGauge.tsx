@@ -12,7 +12,7 @@ export function RiskGauge({ score, level }: { score: number; level: string }) {
     <div className="flex flex-col items-center gap-1">
       <span className={`text-4xl font-bold ${color}`}>
         {score}
-        <span className="text-lg font-normal text-black/50 dark:text-white/50"> / 100</span>
+        <span className="text-lg font-normal text-black/60 dark:text-white/60"> / 100</span>
       </span>
       <span className={`text-sm font-medium uppercase tracking-wide ${color}`}>{level} risk</span>
     </div>

@@ -157,7 +157,24 @@ export function AnalyzerForm() {
               </button>
             </span>
           ) : (
-            "Drop a raw email (.eml) here for full header analysis, or click to browse. You can also fill the fields below manually."
+            <>
+              <p>
+                Drop a raw email (.eml) here for full header analysis, or fill the fields below
+                manually.
+              </p>
+              {/* Clicking anywhere in the zone is a mouse convenience; this button is the
+                  keyboard- and screen-reader-reachable path to the same file picker. */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                className="mt-2 border border-black/30 px-3 py-1.5 text-xs font-medium hover:bg-black/5 dark:border-white/30 dark:hover:bg-white/10"
+              >
+                Browse for .eml file
+              </button>
+            </>
           )}
           <input
             ref={fileInputRef}
@@ -190,7 +207,7 @@ export function AnalyzerForm() {
             value={org}
             onChange={(e) => setOrg(e.target.value)}
             placeholder="Acme Corp"
-            className="border border-black/30 bg-transparent px-3 py-2 outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
+            className="border border-black/30 bg-transparent px-3 py-2 focus:border-black dark:border-white/30 dark:focus:border-white"
           />
         </label>
 
@@ -202,7 +219,7 @@ export function AnalyzerForm() {
                 value={sender}
                 onChange={(e) => setSender(e.target.value)}
                 placeholder="Display Name <address@domain.com>"
-                className="border border-black/30 bg-transparent px-3 py-2 outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
+                className="border border-black/30 bg-transparent px-3 py-2 focus:border-black dark:border-white/30 dark:focus:border-white"
               />
             </label>
 
@@ -212,7 +229,7 @@ export function AnalyzerForm() {
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Email subject line"
-                className="border border-black/30 bg-transparent px-3 py-2 outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
+                className="border border-black/30 bg-transparent px-3 py-2 focus:border-black dark:border-white/30 dark:focus:border-white"
               />
             </label>
 
@@ -224,7 +241,7 @@ export function AnalyzerForm() {
                 required
                 rows={10}
                 placeholder="Paste the full email or message text here..."
-                className="border border-black/30 bg-transparent px-3 py-2 font-mono text-xs outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
+                className="border border-black/30 bg-transparent px-3 py-2 font-mono text-xs focus:border-black dark:border-white/30 dark:focus:border-white"
               />
             </label>
           </>
@@ -233,11 +250,16 @@ export function AnalyzerForm() {
         <button
           type="submit"
           disabled={loading}
+          aria-busy={loading}
           className="border border-black bg-black px-4 py-2.5 font-medium text-white hover:bg-black/80 disabled:opacity-50 dark:border-white dark:bg-white dark:text-black dark:hover:bg-white/80"
         >
           {loading ? "Analyzing…" : "Analyze message"}
         </button>
-        {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+            {error}
+          </p>
+        )}
       </form>
 
       <div className="flex flex-col gap-4">
@@ -269,7 +291,7 @@ export function AnalyzerForm() {
             )}
 
             {(data.aiStatus === "timeout" || data.aiStatus === "error") && (
-              <p className="text-xs text-black/50 dark:text-white/50">
+              <p className="text-xs text-black/60 dark:text-white/60">
                 AI summary unavailable ({data.aiStatus === "timeout" ? "request timed out" : "service error"}) —
                 showing heuristic results only.
               </p>
@@ -311,7 +333,7 @@ export function AnalyzerForm() {
                       <p className="font-medium">{ind.label}</p>
                       <p className="text-black/60 dark:text-white/60">{ind.detail}</p>
                     </div>
-                    <span className="ml-auto shrink-0 text-xs font-semibold text-black/50 dark:text-white/50">
+                    <span className="ml-auto shrink-0 text-xs font-semibold text-black/60 dark:text-white/60">
                       +{ind.weight}
                     </span>
                   </li>
@@ -347,7 +369,7 @@ export function AnalyzerForm() {
                               {trace.hops.map((hop, i) => (
                                 <li key={i} className="break-all">
                                   {i + 1}. {hop.url}{" "}
-                                  <span className="text-black/50 dark:text-white/50">
+                                  <span className="text-black/60 dark:text-white/60">
                                     {hop.status !== null ? `[${hop.status}]` : hop.note ? `[${hop.note}]` : ""}
                                   </span>
                                 </li>
