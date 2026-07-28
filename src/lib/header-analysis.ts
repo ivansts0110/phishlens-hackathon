@@ -29,10 +29,6 @@ function headerValues(headers: RawHeader[], name: string): string[] {
   return headers.filter((x) => x.key.toLowerCase() === name.toLowerCase()).map((x) => x.value);
 }
 
-// Pulls the receiving server's own verdicts out of Authentication-Results.
-// This is the strongest evidence available in a raw email: the recipient's
-// mail server already did the SPF/DKIM/DMARC cryptographic checks at delivery
-// time, so we read its conclusions instead of re-doing DNS work.
 function parseAuthenticationResults(headers: RawHeader[]): HeaderReport["authenticationResults"] {
   const results: HeaderReport["authenticationResults"] = { spf: null, dkim: null, dmarc: null };
   for (const value of headerValues(headers, "authentication-results")) {

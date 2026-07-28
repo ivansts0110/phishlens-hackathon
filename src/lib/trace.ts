@@ -17,10 +17,6 @@ export type TraceResult = {
 const MAX_HOPS = 8;
 const HOP_TIMEOUT_MS = 5000;
 
-// SSRF guard: a "trace this link" feature is an open invitation to make the
-// server request attacker-chosen URLs, so every hop's hostname is resolved
-// and checked against private/internal ranges before we connect. Redirects
-// into cloud metadata services (169.254.169.254) are the classic escalation.
 function isForbiddenIp(ip: string): boolean {
   if (net.isIPv6(ip)) {
     const lower = ip.toLowerCase();
@@ -93,9 +89,6 @@ export async function traceUrl(startUrl: string): Promise<TraceResult> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), HOP_TIMEOUT_MS);
     try {
-      // GET with manual redirects; body is never read, so this fetches
-      // headers only in practice. HEAD would be cheaper but many link
-      // shorteners and trackers refuse or mishandle it.
       const res = await fetch(current, {
         method: "GET",
         redirect: "manual",

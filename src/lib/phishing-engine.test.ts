@@ -36,7 +36,7 @@ test("brand name embedded in domain is caught even with no brand mention in disp
 
 test("mixed-script homograph domain is flagged independent of the brand list", () => {
   const result = analyze({
-    sender: "Apple <support@аpple.com>", // Cyrillic а
+    sender: "Apple <support@аpple.com>",
     subject: "iCloud verification",
     body: "verify your account",
   });

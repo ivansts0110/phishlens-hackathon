@@ -162,8 +162,6 @@ export function AnalyzerForm() {
                 Drop a raw email (.eml) here for full header analysis, or fill the fields below
                 manually.
               </p>
-              {/* Clicking anywhere in the zone is a mouse convenience; this button is the
-                  keyboard- and screen-reader-reachable path to the same file picker. */}
               <button
                 type="button"
                 onClick={(e) => {

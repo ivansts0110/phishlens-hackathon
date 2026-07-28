@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { traceUrl } from "@/lib/trace";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 
-// Stricter than /api/analyze: every call makes outbound network requests.
 const RATE_LIMIT = 10;
 const RATE_WINDOW_MS = 60_000;
 

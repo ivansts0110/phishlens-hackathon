@@ -2,10 +2,6 @@ import type { ScanRecord } from "./store";
 
 const TIMEOUT_MS = 3000;
 
-// Fire-and-forget webhook for High/Critical scans. Payload uses the
-// Slack-compatible {text} shape, which Discord (with /slack suffix),
-// Mattermost, and most incident tools also accept. Never blocks or fails
-// the scan response — same optional-enhancement pattern as the AI layer.
 export function fireAlertWebhook(record: ScanRecord): void {
   const url = process.env.ALERT_WEBHOOK_URL;
   if (!url) return;

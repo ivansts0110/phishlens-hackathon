@@ -27,8 +27,7 @@ test("each step strictly reduces the score", () => {
 
 test("invisible-character evasion is neutralized by the hardened detector", () => {
   const report = redTeam(PHISH);
-  // The fully-evaded message scores higher against the hardened detector than
-  // the naive one, because the zero-width obfuscation is stripped.
+
   assert.ok(
     report.hardenedFinalScore >= report.finalScore,
     "hardened detector recovers at least as much signal",

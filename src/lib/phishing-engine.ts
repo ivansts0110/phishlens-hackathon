@@ -155,10 +155,6 @@ function tldOf(hostname: string): string {
 }
 
 function senderDomain(sender: string): string | null {
-  // Intentionally not restricted to ASCII: a Unicode homograph domain
-  // (e.g. а mixed-Cyrillic "аpple.com") must survive here so hasMixedScript
-  // can inspect it below — an ASCII-only character class would silently
-  // drop those characters and hide the attack.
   const match = sender.match(/@([^\s<>]+)/);
   return match ? match[1].toLowerCase() : null;
 }
@@ -168,10 +164,6 @@ const CONFUSABLE_SCRIPTS: { name: string; pattern: RegExp }[] = [
   { name: "Greek", pattern: /[Ͱ-Ͽ]/ },
 ];
 
-// Legitimate domains are effectively always single-script. A label that mixes
-// Latin with Cyrillic or Greek look-alike characters (е.g. Cyrillic "а" for
-// Latin "a") is a classic homograph attack and gets flagged regardless of
-// which brand, if any, it's impersonating.
 function mixedScriptOf(hostname: string): string | null {
   const hasLatin = /[a-zA-Z]/.test(hostname);
   if (!hasLatin) return null;
@@ -190,10 +182,6 @@ function senderDisplayName(sender: string): string {
   return match ? match[1].trim() : "";
 }
 
-// Invisible/format-control characters an attacker can inject inside a trigger
-// phrase ("verify your p​assword") to break a naive substring match while
-// remaining visually identical to a human. Stripping them before matching is
-// the concrete hardening the Adversarial Red-Team Lab recommends and applies.
 const ZERO_WIDTH = /[\u200b-\u200f\u202a-\u202e\u2060\ufeff]/g;
 
 export function normalizeForMatch(raw: string, hardened: boolean): string {
@@ -210,12 +198,6 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
   const sDomain = senderDomain(input.sender);
   const displayName = senderDisplayName(input.sender).toLowerCase();
 
-  // 1. Brand impersonation. A message can claim to be a known brand three ways:
-  // the display name says so ("PayPal Security"), the domain is a close typo
-  // of the real one (paypa1.com), or the domain simply stuffs the brand name
-  // into an unrelated domain (paypal-support-secure.com) with no mention of
-  // the brand in the display name at all — this last pattern is common and
-  // would otherwise slip past a display-name-only check entirely.
   for (const brand of KNOWN_BRANDS) {
     const isRealDomain = sDomain === brand.domain || (sDomain?.endsWith(`.${brand.domain}`) ?? false);
     if (isRealDomain || !sDomain) continue;
@@ -243,9 +225,6 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
     }
   }
 
-  // 1b. Homograph / internationalized-domain spoofing, independent of any
-  // known brand list — this catches lookalike domains for brands we don't
-  // track at all.
   const candidateHosts = [sDomain, ...urls.map(domainOf)].filter((d): d is string => Boolean(d));
   for (const host of candidateHosts) {
     const mixedScript = mixedScriptOf(host);
@@ -271,7 +250,6 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
     }
   }
 
-  // 2. Suspicious URLs
   let flaggedShortener = false;
   let flaggedIp = false;
   let flaggedTld = false;
@@ -310,7 +288,6 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
     }
   }
 
-  // 3. Mismatched link text vs actual destination
   for (const link of markupLinks) {
     const textLooksLikeUrl = /^(https?:\/\/|www\.)/i.test(link.text.trim());
     const hrefHost = domainOf(link.href);
@@ -329,7 +306,6 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
     }
   }
 
-  // 4. Urgency language
   const urgencyHits = URGENCY_PHRASES.filter((p) => fullText.includes(p));
   if (urgencyHits.length > 0) {
     indicators.push({
@@ -341,7 +317,6 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
     });
   }
 
-  // 5. Threats of account loss
   const threatHits = THREAT_PHRASES.filter((p) => fullText.includes(p));
   if (threatHits.length > 0) {
     indicators.push({
@@ -353,7 +328,6 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
     });
   }
 
-  // 6. Credential / payment harvesting language
   const credHits = CREDENTIAL_PHRASES.filter((p) => fullText.includes(p));
   if (credHits.length > 0) {
     indicators.push({
@@ -365,7 +339,6 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
     });
   }
 
-  // 7. Generic greeting
   if (GENERIC_GREETINGS.some((g) => fullText.includes(g))) {
     indicators.push({
       id: "generic-greeting",
@@ -376,7 +349,6 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
     });
   }
 
-  // 8. Reply-to mismatch
   const replyToMatch = input.body.match(/reply-to:\s*<?([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+)>?/i);
   if (replyToMatch && sDomain) {
     const replyDomain = replyToMatch[1].split("@")[1].toLowerCase();
@@ -391,7 +363,6 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
     }
   }
 
-  // 9. Suspicious attachment mention
   if (/\.(exe|scr|js|vbs|jar|bat|cmd)\b/i.test(input.body)) {
     indicators.push({
       id: "suspicious-attachment",
@@ -405,9 +376,6 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
   return scoreResult(indicators, urls);
 }
 
-// Exposed so callers (e.g. the API route merging in results from the Python
-// enrichment service) can recompute score/level after appending indicators
-// from another source, using the exact same scoring rules.
 export function scoreResult(indicators: Indicator[], urls: string[]): AnalysisResult {
   const rawScore = indicators.reduce((sum, i) => sum + i.weight, 0);
   const score = Math.min(100, rawScore);

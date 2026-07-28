@@ -27,14 +27,26 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    fetch(`/api/history?org=${encodeURIComponent(org)}`)
-      .then((r) => r.json())
-      .then((data) => {
+    let cancelled = false;
+
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/history?org=${encodeURIComponent(org)}`);
+        const data = await res.json();
+        if (cancelled) return;
         setScans(data.scans);
         setOrgs(data.orgs);
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+
+    return () => {
+      cancelled = true;
+    };
   }, [org]);
 
   const stats = useMemo(() => {

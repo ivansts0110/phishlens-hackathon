@@ -16,9 +16,6 @@ export async function parseEml(raw: string): Promise<ParsedEml> {
   const fromAddress = email.from?.address ?? "";
   const sender = fromName ? `${fromName} <${fromAddress}>` : fromAddress;
 
-  // Prefer the plain-text part; fall back to stripping tags from HTML-only
-  // messages so the keyword heuristics still have something to scan. Keep
-  // href values inline so link extraction sees the real destinations.
   let body = email.text ?? "";
   if (!body.trim() && email.html) {
     body = email.html

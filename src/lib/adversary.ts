@@ -1,20 +1,12 @@
 import { analyze, CREDENTIAL_PHRASES, GENERIC_GREETINGS, type AnalysisResult } from "./phishing-engine";
 
-// The Adversarial Red-Team Lab. Given a message the user has flagged as
-// phishing, it plays the role of an attacker trying to slip that same message
-// past the detector, applying one evasion technique at a time and keeping
-// whichever lowers the risk score most. The output is a step-by-step "descent"
-// that exposes exactly which heuristics are brittle — and, for each technique,
-// a concrete hardening recommendation. This is a defensive tool: it red-teams
-// our own classifier, it does not manufacture novel phishing from scratch.
-
 export type Email = { sender: string; subject: string; body: string };
 
 export type Operator = {
   id: string;
   label: string;
   technique: string;
-  targets: string; // human label of the indicator category it attacks
+  targets: string;
   hardenable: boolean;
   recommendation: string;
   apply: (e: Email) => Email;
@@ -37,23 +29,19 @@ export type AttackReport = {
   finalLevel: string;
   steps: AttackStep[];
   finalEmail: Email;
-  // What the same fully-evaded message scores against the *hardened* detector
-  // (PhishLens with Unicode normalization on), vs. the naive baseline.
+
   hardenedFinalScore: number;
   hardenedFinalLevel: string;
   neutralizedByHardening: string[];
   survivingTechniques: string[];
 };
 
-const ZWSP = "​";
+const ZWSP = "\u200b";
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-// Insert an invisible zero-width space just after the first character of each
-// occurrence of a phrase — visually identical, but it breaks a naive
-// substring match.
 function injectInvisible(text: string, phrases: readonly string[]): string {
   let out = text;
   for (const phrase of phrases) {
@@ -106,7 +94,7 @@ const OPERATORS: Operator[] = [
     id: "invisible-chars",
     label: "Invisible-character injection",
     technique:
-      "Inserts zero-width Unicode characters inside credential-request phrases (e.g. “verify your p​assword”). Visually identical to a human, but it shatters a naive substring match.",
+      "Inserts zero-width Unicode characters inside credential-request phrases (e.g. “verify your p\u200bassword”). Visually identical to a human, but it shatters a naive substring match.",
     targets: "Credential-harvesting keywords",
     hardenable: true,
     recommendation:
@@ -210,10 +198,10 @@ export function redTeam(input: Email, maxSteps = OPERATORS.length): AttackReport
       if (used.has(op.id)) continue;
       const candidate = op.apply(current);
       if (candidate.sender === current.sender && candidate.subject === current.subject && candidate.body === current.body) {
-        continue; // operator had nothing to change
+        continue;
       }
       const result = naiveScore(candidate);
-      if (result.score >= currentResult.score) continue; // must reduce
+      if (result.score >= currentResult.score) continue;
       if (!best || result.score < best.result.score) best = { op, email: candidate, result };
     }
 
@@ -241,7 +229,6 @@ export function redTeam(input: Email, maxSteps = OPERATORS.length): AttackReport
     if (currentResult.level === "Low" && currentResult.score === 0) break;
   }
 
-  // Re-score the fully-evaded message against the hardened detector.
   const hardenedResult = analyze(current, { hardened: true });
   const naiveIds = indicatorIds(currentResult);
   const hardenedIds = indicatorIds(hardenedResult);

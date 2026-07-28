@@ -10,10 +10,6 @@ export type EnrichResult = {
   status: EnrichStatus;
 };
 
-// Calls the optional Python domain-intelligence service (see /python-service).
-// Same "optional enhancement, never a hard dependency" pattern as ai-explain.ts:
-// unset PYTHON_SERVICE_URL, or the service being down/slow, degrades to no
-// extra indicators rather than failing the scan.
 export async function enrichWithPythonService(
   senderDomain: string | null,
   urls: string[],
