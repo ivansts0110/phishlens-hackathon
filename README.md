@@ -40,7 +40,24 @@ into a demo — can see exactly why a message is dangerous.
 
    Every trigger is a scored, human-readable indicator, not a black-box number.
 
-2. **Raw email (.eml) header forensics** (`src/lib/eml.ts`, `src/lib/header-analysis.ts`,
+2. **Adversarial Red-Team Lab** (`/lab`, `src/lib/adversary.ts`, unit-tested in
+   `adversary.test.ts`) — the headline feature: PhishLens attacks *its own detector*.
+   Give it a message flagged as phishing and it plays the adversary, applying one
+   evasion technique at a time (invisible-character injection, urgency/threat
+   paraphrasing, sender neutralization, link laundering) and keeping whichever lowers
+   the risk score most — a live step-by-step "descent" from Critical to Low. Every
+   successful evasion is turned into a concrete hardening recommendation, and the
+   fully-evaded message is re-scored against the *hardened* detector to prove which
+   attacks PhishLens already defeats (invisible-character injection is neutralized by
+   the Unicode-normalization hardening this feature motivated) versus which are
+   fundamental limits of content-only analysis — the exact justification for the
+   header-forensics, link-tracing, and domain-intelligence layers below. It's a
+   defensive tool: it red-teams our classifier and outputs defenses, it does not
+   manufacture novel phishing.
+
+   ![Adversarial Red-Team Lab](docs/screenshots/redteam-lab.png)
+
+3. **Raw email (.eml) header forensics** (`src/lib/eml.ts`, `src/lib/header-analysis.ts`,
    unit-tested in `header-analysis.test.ts`) — drag a real `.eml` file onto the
    analyzer and PhishLens parses the full message and reads the forensic evidence that
    plain pasted text can't carry:
@@ -52,7 +69,7 @@ into a demo — can see exactly why a message is dangerous.
      spoofing and invoice/executive-impersonation fraud.
    - The `Received:` delivery-hop chain, surfaced in the report.
 
-3. **Safe link redirect tracer** (`src/lib/trace.ts`, `/api/trace`) — for any link
+4. **Safe link redirect tracer** (`src/lib/trace.ts`, `/api/trace`) — for any link
    found in a message, trace where it *actually* goes, hop by hop
    (`bit.ly/x → tracker → paypa1-support.com/login`), server-side, without the user's
    browser ever touching the destination. Because "fetch an attacker-chosen URL on the
@@ -60,19 +77,19 @@ into a demo — can see exactly why a message is dangerous.
    blocked if it points at a private, loopback, or cloud-metadata address, with a cap
    on redirect count.
 
-4. **Incident report + alerting** (`/report/[id]`, `src/lib/alert.ts`) — every scan
+5. **Incident report + alerting** (`/report/[id]`, `src/lib/alert.ts`) — every scan
    gets a clean, printable/PDF-able incident report (verdict, indicators, header
    forensics, delivery path, links). If `ALERT_WEBHOOK_URL` is set, High/Critical scans
    fire a Slack-compatible webhook (also works with Discord/Mattermost) — fire-and-forget,
    never blocking the scan.
 
-5. **Optional AI layer** (`src/lib/ai-explain.ts`) — if `ANTHROPIC_API_KEY` is set,
+6. **Optional AI layer** (`src/lib/ai-explain.ts`) — if `ANTHROPIC_API_KEY` is set,
    the app asks Claude to turn the indicator list into a 3–5 sentence plain-English
    explanation and recommended action for a non-technical recipient. Bounded by an
    8s timeout; if it's slow, errors, or the key isn't set, the app falls back to
    heuristic-only results and says so in the UI rather than silently doing nothing.
 
-6. **Optional Python enrichment layer** (`python-service/`) — a second signal source
+7. **Optional Python enrichment layer** (`python-service/`) — a second signal source
    for things that need a network call (WHOIS domain age, live SPF/DKIM/DMARC record
    lookups for pasted messages that have no headers) or are more naturally solved in
    Python (a trained phishing classifier). Same optional-dependency pattern as the AI
@@ -80,7 +97,7 @@ into a demo — can see exactly why a message is dangerous.
    a hard failure. **This part is a contract + stub, not a finished feature** — see
    `python-service/README.md`.
 
-7. **Multi-tenant scan history** (`src/lib/store.ts`) — every scan is tagged with an
+8. **Multi-tenant scan history** (`src/lib/store.ts`) — every scan is tagged with an
    organization and stored, powering the `/dashboard` view: total scans, average risk
    score, risk distribution, and a searchable history table.
 
@@ -120,17 +137,22 @@ Slack (or Discord/Mattermost) incoming-webhook URL.
 
 ## Demo script
 
-1. Go to `/` and click a sample button to load a realistic message, or paste your own —
+1. **Open the money shot first: go to `/lab`** and click **Run adversarial red-team**.
+   Watch PhishLens attack its own detector and drive a Critical (93) phishing email down
+   to Low (0) step by step, then read the hardening report showing which evasion it
+   already defeats and why the rest of the product's layers exist. This is the "sit up"
+   moment.
+2. Go to `/` and click a sample button to load a realistic message, or paste your own —
    click **Analyze message** and watch the score, indicator list, and (if a key is set)
    the AI summary populate.
-2. **Drag `docs/samples/phishing-sample.eml` onto the dropzone** and analyze it — this
+3. **Drag `docs/samples/phishing-sample.eml` onto the dropzone** and analyze it — this
    adds the header-forensics panel (failing SPF/DKIM/DMARC, Return-Path and Reply-To
    mismatches) on top of the content indicators, pushing it to a 100/Critical verdict.
-3. In the **Extracted links** panel, click **Trace destination** on the link to follow
+4. In the **Extracted links** panel, click **Trace destination** on the link to follow
    its redirect chain server-side to the real endpoint.
-4. Click **View full incident report** for the printable/PDF-able summary.
-5. Go to `/dashboard` for the org-wide scan history and risk distribution.
-6. (Optional) With `ALERT_WEBHOOK_URL` set to a Slack channel, analyze the .eml sample
+5. Click **View full incident report** for the printable/PDF-able summary.
+6. Go to `/dashboard` for the org-wide scan history and risk distribution.
+7. (Optional) With `ALERT_WEBHOOK_URL` set to a Slack channel, analyze the .eml sample
    live and watch the red alert land in Slack mid-demo.
 
 ## Project structure

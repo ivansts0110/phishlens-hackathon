@@ -14,6 +14,9 @@ export function Nav() {
           <Link href="/dashboard" className="underline-offset-2 hover:underline">
             Dashboard
           </Link>
+          <Link href="/lab" className="underline-offset-2 hover:underline">
+            Red-Team Lab
+          </Link>
         </nav>
       </div>
     </header>

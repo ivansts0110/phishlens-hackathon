@@ -19,7 +19,7 @@ export type AnalysisResult = {
   urls: string[];
 };
 
-const KNOWN_BRANDS: { name: string; domain: string }[] = [
+export const KNOWN_BRANDS: { name: string; domain: string }[] = [
   { name: "PayPal", domain: "paypal.com" },
   { name: "Apple", domain: "apple.com" },
   { name: "Microsoft", domain: "microsoft.com" },
@@ -75,28 +75,28 @@ const SUSPICIOUS_TLDS = [
   "work", "click", "link", "support", "fit", "kim", "loan", "men", "rest",
 ];
 
-const URL_SHORTENERS = [
+export const URL_SHORTENERS = [
   "bit.ly", "tinyurl.com", "t.co", "goo.gl", "ow.ly", "is.gd", "buff.ly", "cutt.ly", "rebrand.ly",
 ];
 
-const URGENCY_PHRASES = [
+export const URGENCY_PHRASES = [
   "act now", "immediate action", "urgent", "within 24 hours", "expire", "expires today",
   "final notice", "last chance", "time-sensitive", "immediately", "right away", "as soon as possible",
 ];
 
-const THREAT_PHRASES = [
+export const THREAT_PHRASES = [
   "account suspended", "account will be locked", "account has been limited", "unusual activity",
   "unauthorized access", "your account will be closed", "legal action", "suspended", "restricted",
   "your access will be", "failure to comply",
 ];
 
-const CREDENTIAL_PHRASES = [
+export const CREDENTIAL_PHRASES = [
   "verify your password", "confirm your identity", "update your payment", "verify your account",
   "confirm your account", "reset your password", "enter your credentials", "log in to verify",
   "provide your ssn", "confirm your billing", "validate your information",
 ];
 
-const GENERIC_GREETINGS = [
+export const GENERIC_GREETINGS = [
   "dear customer", "dear user", "dear valued customer", "dear account holder", "dear member",
 ];
 
@@ -190,9 +190,21 @@ function senderDisplayName(sender: string): string {
   return match ? match[1].trim() : "";
 }
 
-export function analyze(input: AnalysisInput): AnalysisResult {
+// Invisible/format-control characters an attacker can inject inside a trigger
+// phrase ("verify your p​assword") to break a naive substring match while
+// remaining visually identical to a human. Stripping them before matching is
+// the concrete hardening the Adversarial Red-Team Lab recommends and applies.
+const ZERO_WIDTH = /[\u200b-\u200f\u202a-\u202e\u2060\ufeff]/g;
+
+export function normalizeForMatch(raw: string, hardened: boolean): string {
+  const lowered = raw.toLowerCase();
+  return hardened ? lowered.replace(ZERO_WIDTH, "") : lowered;
+}
+
+export function analyze(input: AnalysisInput, options: { hardened?: boolean } = {}): AnalysisResult {
+  const hardened = options.hardened ?? true;
   const indicators: Indicator[] = [];
-  const fullText = `${input.subject}\n${input.body}`.toLowerCase();
+  const fullText = normalizeForMatch(`${input.subject}\n${input.body}`, hardened);
   const urls = extractUrls(input.body);
   const markupLinks = extractMarkupLinks(input.body);
   const sDomain = senderDomain(input.sender);
