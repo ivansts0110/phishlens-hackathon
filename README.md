@@ -215,7 +215,7 @@ Being upfront about these rather than papering over them:
   single-source abuse of a public demo URL; it isn't a substitute for a real
   rate limiter (e.g. Upstash/Redis) in production.
 
-## Roadmap (beyond the hackathon scope)
+## Roadmap
 
 - Real inbox integration (Gmail/Outlook add-in) instead of copy-paste / file upload
 - Persistent shared database + auth instead of a local JSON store
@@ -224,4 +224,5 @@ Being upfront about these rather than papering over them:
 
 ## Team
 
-_Add your team members' names and roles here before submitting._
+[Ivan S.](https://linkedin.com/in/ivan-stashchak)
+Philip G.M.
