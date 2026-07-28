@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { AnalysisResult } from "./phishing-engine";
+import type { HeaderReport } from "./header-analysis";
 
 export type ScanRecord = {
   id: string;
@@ -10,6 +11,7 @@ export type ScanRecord = {
   createdAt: string;
   result: AnalysisResult;
   aiExplanation?: string;
+  headerReport?: HeaderReport;
 };
 
 const DATA_DIR = path.join(process.cwd(), "data");
@@ -122,6 +124,10 @@ export function addScan(record: Omit<ScanRecord, "id" | "createdAt">): ScanRecor
   if (all.length > MAX_RECORDS) all.length = MAX_RECORDS;
   persist();
   return full;
+}
+
+export function getScan(id: string): ScanRecord | null {
+  return loadCache().find((s) => s.id === id) ?? null;
 }
 
 export function listScans(org?: string): ScanRecord[] {

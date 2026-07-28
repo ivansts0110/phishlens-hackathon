@@ -1,0 +1,35 @@
+Delivered-To: victim@acme-corp.com
+Received: by 2002:a05:6000:1234:0:0:0:0 with SMTP id ac-corp-mx-04;
+        Tue, 28 Jul 2026 09:14:22 -0700 (PDT)
+Received: from mail.sketchy-sender-host.top (mail.sketchy-sender-host.top. [185.220.101.47])
+        by mx.acme-corp.com with ESMTPS id r7-20260728
+        for <victim@acme-corp.com>;
+        Tue, 28 Jul 2026 09:14:21 -0700 (PDT)
+Authentication-Results: mx.acme-corp.com;
+       spf=fail (sender IP is 185.220.101.47) smtp.mailfrom=bounce@sketchy-sender-host.top;
+       dkim=fail header.d=paypa1-support.com;
+       dmarc=fail (p=none) header.from=paypa1-support.com
+Return-Path: <bounce@sketchy-sender-host.top>
+Reply-To: PayPal Recovery <recovery@paypal-account-team.top>
+From: PayPal Security <security@paypa1-support.com>
+To: victim@acme-corp.com
+Subject: Your account has been limited - action required within 24 hours
+Message-ID: <20260728091421.r7@sketchy-sender-host.top>
+Date: Tue, 28 Jul 2026 09:14:21 -0700
+MIME-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+
+Dear Customer,
+
+We have detected unusual activity on your PayPal account. Your account will
+be locked within 24 hours unless you verify your identity immediately.
+
+Please confirm your account by clicking the link below and verifying your
+password and billing details:
+
+http://bit.ly/pp-verify-8842
+
+Failure to comply will result in permanent suspension of your account.
+
+Thank you,
+PayPal Security Team

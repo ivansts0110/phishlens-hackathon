@@ -40,20 +40,47 @@ into a demo — can see exactly why a message is dangerous.
 
    Every trigger is a scored, human-readable indicator, not a black-box number.
 
-2. **Optional AI layer** (`src/lib/ai-explain.ts`) — if `ANTHROPIC_API_KEY` is set,
+2. **Raw email (.eml) header forensics** (`src/lib/eml.ts`, `src/lib/header-analysis.ts`,
+   unit-tested in `header-analysis.test.ts`) — drag a real `.eml` file onto the
+   analyzer and PhishLens parses the full message and reads the forensic evidence that
+   plain pasted text can't carry:
+   - The receiving mail server's own `Authentication-Results` — the SPF, DKIM, and
+     DMARC verdicts it computed at delivery time. A failing DKIM signature or SPF check
+     is hard evidence of forgery, and we read the server's conclusion rather than
+     re-doing DNS work.
+   - `Return-Path` vs `From` and `Reply-To` vs `From` domain mismatches — staples of
+     spoofing and invoice/executive-impersonation fraud.
+   - The `Received:` delivery-hop chain, surfaced in the report.
+
+3. **Safe link redirect tracer** (`src/lib/trace.ts`, `/api/trace`) — for any link
+   found in a message, trace where it *actually* goes, hop by hop
+   (`bit.ly/x → tracker → paypa1-support.com/login`), server-side, without the user's
+   browser ever touching the destination. Because "fetch an attacker-chosen URL on the
+   server" is an SSRF risk by construction, every hop's hostname is resolved and
+   blocked if it points at a private, loopback, or cloud-metadata address, with a cap
+   on redirect count.
+
+4. **Incident report + alerting** (`/report/[id]`, `src/lib/alert.ts`) — every scan
+   gets a clean, printable/PDF-able incident report (verdict, indicators, header
+   forensics, delivery path, links). If `ALERT_WEBHOOK_URL` is set, High/Critical scans
+   fire a Slack-compatible webhook (also works with Discord/Mattermost) — fire-and-forget,
+   never blocking the scan.
+
+5. **Optional AI layer** (`src/lib/ai-explain.ts`) — if `ANTHROPIC_API_KEY` is set,
    the app asks Claude to turn the indicator list into a 3–5 sentence plain-English
    explanation and recommended action for a non-technical recipient. Bounded by an
    8s timeout; if it's slow, errors, or the key isn't set, the app falls back to
    heuristic-only results and says so in the UI rather than silently doing nothing.
 
-3. **Optional Python enrichment layer** (`python-service/`) — a second signal source
-   for things that need a network call (WHOIS domain age, SPF/DKIM/DMARC records) or
-   are more naturally solved in Python (a trained phishing classifier). Same
-   optional-dependency pattern as the AI layer: unset `PYTHON_SERVICE_URL` or a
-   down/slow service degrades to heuristic-only, never a hard failure. **This part is
-   a contract + stub, not a finished feature** — see `python-service/README.md`.
+6. **Optional Python enrichment layer** (`python-service/`) — a second signal source
+   for things that need a network call (WHOIS domain age, live SPF/DKIM/DMARC record
+   lookups for pasted messages that have no headers) or are more naturally solved in
+   Python (a trained phishing classifier). Same optional-dependency pattern as the AI
+   layer: unset `PYTHON_SERVICE_URL` or a down/slow service degrades gracefully, never
+   a hard failure. **This part is a contract + stub, not a finished feature** — see
+   `python-service/README.md`.
 
-4. **Multi-tenant scan history** (`src/lib/store.ts`) — every scan is tagged with an
+7. **Multi-tenant scan history** (`src/lib/store.ts`) — every scan is tagged with an
    organization and stored, powering the `/dashboard` view: total scans, average risk
    score, risk distribution, and a searchable history table.
 
@@ -88,40 +115,53 @@ cp .env.example .env.local
 To enable the optional Python enrichment layer, see `python-service/README.md`, then
 set `PYTHON_SERVICE_URL` (e.g. `http://localhost:8000`) in `.env.local`.
 
+To enable High/Critical webhook alerts, set `ALERT_WEBHOOK_URL` in `.env.local` to a
+Slack (or Discord/Mattermost) incoming-webhook URL.
+
 ## Demo script
 
-1. Go to `/` and click one of the sample buttons (**Fake PayPal account alert**,
-   **DocuSign urgent signature request**, or **Legitimate internal email**) to
-   instantly load a realistic message.
-2. Click **Analyze message** — watch the risk gauge, indicator list, and (if an API
-   key is set) the AI summary populate.
-3. Go to `/dashboard` to see the scan logged against its organization, alongside
-   aggregate stats and risk distribution across all scans so far.
-4. Paste in your own suspicious email to show it isn't just hard-coded to the samples.
+1. Go to `/` and click a sample button to load a realistic message, or paste your own —
+   click **Analyze message** and watch the score, indicator list, and (if a key is set)
+   the AI summary populate.
+2. **Drag `docs/samples/phishing-sample.eml` onto the dropzone** and analyze it — this
+   adds the header-forensics panel (failing SPF/DKIM/DMARC, Return-Path and Reply-To
+   mismatches) on top of the content indicators, pushing it to a 100/Critical verdict.
+3. In the **Extracted links** panel, click **Trace destination** on the link to follow
+   its redirect chain server-side to the real endpoint.
+4. Click **View full incident report** for the printable/PDF-able summary.
+5. Go to `/dashboard` for the org-wide scan history and risk distribution.
+6. (Optional) With `ALERT_WEBHOOK_URL` set to a Slack channel, analyze the .eml sample
+   live and watch the red alert land in Slack mid-demo.
 
 ## Project structure
 
 ```
 src/
   app/
-    page.tsx                analyzer UI (home)
-    dashboard/page.tsx       org-scoped scan history + stats
-    api/analyze/route.ts     POST: scores a message, stores it, returns result
-    api/history/route.ts     GET: scan history + known orgs
+    page.tsx                 analyzer UI (home)
+    dashboard/page.tsx        org-scoped scan history + stats
+    report/[id]/page.tsx      printable incident report for a scan
+    api/analyze/route.ts      POST: scores a message/.eml, stores it, returns result
+    api/history/route.ts      GET: scan history + known orgs
+    api/trace/route.ts        POST: safely trace a link's redirect chain
   components/
-    AnalyzerForm.tsx          form + results panel (client component)
-    RiskGauge.tsx              circular score gauge
-    Nav.tsx                    shared nav bar
+    AnalyzerForm.tsx           form, .eml dropzone, results, link tracer (client)
+    RiskGauge.tsx               score + level display
+    Nav.tsx / PrintButton.tsx   shared nav bar / print control
   lib/
-    phishing-engine.ts         scoring engine (pure functions, unit-tested)
-    phishing-engine.test.ts    unit tests (node:test via tsx)
-    ai-explain.ts               optional Claude API call, with timeout + status
-    enrich.ts                   optional Python service call, with timeout + status
-    rate-limit.ts                in-memory per-IP rate limiter for the API routes
-    store.ts                     in-memory scan history, best-effort disk persistence
-    samples.ts                   canned demo messages
+    phishing-engine.ts          content scoring engine (pure functions, unit-tested)
+    header-analysis.ts          .eml header forensics (unit-tested)
+    eml.ts                       raw .eml parsing (postal-mime)
+    trace.ts                     link redirect tracer with SSRF guards
+    alert.ts                     High/Critical webhook alerts
+    ai-explain.ts                optional Claude API call, with timeout + status
+    enrich.ts                    optional Python service call, with timeout + status
+    rate-limit.ts                 in-memory per-IP rate limiter for the API routes
+    store.ts                      in-memory scan history, best-effort disk persistence
+    samples.ts                    canned demo messages
+docs/samples/phishing-sample.eml  demo email with failing auth + spoofed headers
 python-service/
-  app.py                        FastAPI contract + stub (see its own README)
+  app.py                         FastAPI contract + stub (see its own README)
   requirements.txt
 ```
 
@@ -134,9 +174,12 @@ Being upfront about these rather than papering over them:
   tuned so a single such indicator alone stays in the Low band, but an aggressive
   marketing email combined with a generic greeting could tip into Medium.
 - **Link-text-mismatch detection only works on markdown/HTML-style links**
-  (`[text](url)` or `<a href>`), not plain "click here: http://evil.com" text, since
-  the input is a plain-text paste with no way to represent a styled hyperlink where
-  the visible text differs from the destination.
+  (`[text](url)` or `<a href>`), not plain "click here: http://evil.com" text. Pasting
+  plain text has no way to represent a styled hyperlink; uploading the original `.eml`
+  preserves the real HTML anchors, so this is much stronger on uploaded emails.
+- **Header forensics requires the raw `.eml`.** A copy-pasted message body has no
+  headers, so SPF/DKIM/DMARC and Return-Path analysis only run on uploaded files. This
+  is inherent — the evidence simply isn't present in pasted text.
 - **The brand-impersonation list is finite** (~48 well-known brands). Impersonation of
   anything outside it relies on the homograph/typo checks catching it, or on the
   Python enrichment layer's domain-intelligence signals (domain age, SPF/DKIM/DMARC)
@@ -152,11 +195,10 @@ Being upfront about these rather than papering over them:
 
 ## Roadmap (beyond the hackathon scope)
 
-- Real inbox integration (Gmail/Outlook add-in) instead of copy-paste
+- Real inbox integration (Gmail/Outlook add-in) instead of copy-paste / file upload
 - Persistent shared database + auth instead of a local JSON store
 - Finish the Python enrichment layer (see `python-service/README.md`)
 - Attachment content scanning, not just filename heuristics
-- Org-level alerting/Slack webhook when a Critical-risk message is scanned
 
 ## Team
 
