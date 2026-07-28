@@ -37,6 +37,12 @@ yarn-error.log*
 # runtime scan history (seeded automatically on first run)
 /data
 
+# python-service
+python-service/.venv
+python-service/__pycache__
+python-service/**/__pycache__
+python-service/*.egg-info
+
 # vercel
 .vercel
 

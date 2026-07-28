@@ -1,0 +1,10 @@
+fastapi>=0.115
+uvicorn[standard]>=0.30
+dnspython>=2.6
+python-whois>=0.9
+tldextract>=5.1
+
+# Optional — only needed if you build the stretch-goal ML classifier.
+scikit-learn>=1.5
+pandas>=2.2
+joblib>=1.4

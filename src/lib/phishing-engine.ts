@@ -44,6 +44,30 @@ const KNOWN_BRANDS: { name: string; domain: string }[] = [
   { name: "Zoom", domain: "zoom.us" },
   { name: "Dropbox", domain: "dropbox.com" },
   { name: "Adobe", domain: "adobe.com" },
+  { name: "Citibank", domain: "citibank.com" },
+  { name: "HSBC", domain: "hsbc.com" },
+  { name: "Stripe", domain: "stripe.com" },
+  { name: "Venmo", domain: "venmo.com" },
+  { name: "Robinhood", domain: "robinhood.com" },
+  { name: "eBay", domain: "ebay.com" },
+  { name: "Walmart", domain: "walmart.com" },
+  { name: "Target", domain: "target.com" },
+  { name: "Uber", domain: "uber.com" },
+  { name: "Airbnb", domain: "airbnb.com" },
+  { name: "Spotify", domain: "spotify.com" },
+  { name: "WhatsApp", domain: "whatsapp.com" },
+  { name: "Verizon", domain: "verizon.com" },
+  { name: "T-Mobile", domain: "t-mobile.com" },
+  { name: "Capital One", domain: "capitalone.com" },
+  { name: "Discover", domain: "discover.com" },
+  { name: "GoDaddy", domain: "godaddy.com" },
+  { name: "Shopify", domain: "shopify.com" },
+  { name: "Salesforce", domain: "salesforce.com" },
+  { name: "Okta", domain: "okta.com" },
+  { name: "Slack", domain: "slack.com" },
+  { name: "GitHub", domain: "github.com" },
+  { name: "GitLab", domain: "gitlab.com" },
+  { name: "Twitter", domain: "twitter.com" },
 ];
 
 const SUSPICIOUS_TLDS = [
@@ -131,8 +155,34 @@ function tldOf(hostname: string): string {
 }
 
 function senderDomain(sender: string): string | null {
-  const match = sender.match(/@([a-zA-Z0-9.-]+)/);
+  // Intentionally not restricted to ASCII: a Unicode homograph domain
+  // (e.g. а mixed-Cyrillic "аpple.com") must survive here so hasMixedScript
+  // can inspect it below — an ASCII-only character class would silently
+  // drop those characters and hide the attack.
+  const match = sender.match(/@([^\s<>]+)/);
   return match ? match[1].toLowerCase() : null;
+}
+
+const CONFUSABLE_SCRIPTS: { name: string; pattern: RegExp }[] = [
+  { name: "Cyrillic", pattern: /[Ѐ-ӿ]/ },
+  { name: "Greek", pattern: /[Ͱ-Ͽ]/ },
+];
+
+// Legitimate domains are effectively always single-script. A label that mixes
+// Latin with Cyrillic or Greek look-alike characters (е.g. Cyrillic "а" for
+// Latin "a") is a classic homograph attack and gets flagged regardless of
+// which brand, if any, it's impersonating.
+function mixedScriptOf(hostname: string): string | null {
+  const hasLatin = /[a-zA-Z]/.test(hostname);
+  if (!hasLatin) return null;
+  for (const script of CONFUSABLE_SCRIPTS) {
+    if (script.pattern.test(hostname)) return script.name;
+  }
+  return null;
+}
+
+function hasPunycodeLabel(hostname: string): boolean {
+  return hostname.split(".").some((label) => label.startsWith("xn--"));
 }
 
 function senderDisplayName(sender: string): string {
@@ -148,23 +198,62 @@ export function analyze(input: AnalysisInput): AnalysisResult {
   const sDomain = senderDomain(input.sender);
   const displayName = senderDisplayName(input.sender).toLowerCase();
 
-  // 1. Brand impersonation: display name claims to be a known brand, but the sender
-  // domain isn't that brand's real domain. This catches both close typo-domains
-  // (paypa1.com) and brand-name-stuffed unrelated domains (paypal-support-secure.com),
-  // which is the more common real-world pattern.
+  // 1. Brand impersonation. A message can claim to be a known brand three ways:
+  // the display name says so ("PayPal Security"), the domain is a close typo
+  // of the real one (paypa1.com), or the domain simply stuffs the brand name
+  // into an unrelated domain (paypal-support-secure.com) with no mention of
+  // the brand in the display name at all — this last pattern is common and
+  // would otherwise slip past a display-name-only check entirely.
   for (const brand of KNOWN_BRANDS) {
-    const claimsBrand = displayName.includes(brand.name.toLowerCase());
-    if (claimsBrand && sDomain && sDomain !== brand.domain && !sDomain.endsWith(`.${brand.domain}`)) {
-      const brandLabel = brand.domain.split(".")[0];
-      const domainLabel = sDomain.split(".")[0];
-      const dist = levenshtein(domainLabel, brandLabel);
-      const closeTypo = dist <= 2;
+    const isRealDomain = sDomain === brand.domain || (sDomain?.endsWith(`.${brand.domain}`) ?? false);
+    if (isRealDomain || !sDomain) continue;
+
+    const brandLabel = brand.domain.split(".")[0];
+    const domainLabel = sDomain.split(".")[0];
+    const claimsBrandInName = displayName.includes(brand.name.toLowerCase());
+    const domainEmbedsBrand = sDomain.replace(/[^a-z0-9]/g, "").includes(brandLabel.replace(/[^a-z0-9]/g, ""));
+    const closeTypo = levenshtein(domainLabel, brandLabel) <= 2;
+
+    if (claimsBrandInName || domainEmbedsBrand || closeTypo) {
+      const reason = claimsBrandInName
+        ? `Sender display name claims to be "${brand.name}"`
+        : domainEmbedsBrand
+          ? `Sender domain contains "${brand.name}"`
+          : `Sender domain "${sDomain}" closely resembles "${brand.domain}"`;
       indicators.push({
         id: `impersonation-${brand.domain}`,
         category: "sender",
         label: `Likely impersonation of ${brand.name}`,
-        detail: `Sender display name claims to be "${brand.name}" but the domain is "${sDomain}", not "${brand.domain}".`,
-        weight: closeTypo ? 35 : 28,
+        detail: `${reason}, but ${brand.name}'s real domain is "${brand.domain}".`,
+        weight: closeTypo || claimsBrandInName ? 35 : 28,
+      });
+      break;
+    }
+  }
+
+  // 1b. Homograph / internationalized-domain spoofing, independent of any
+  // known brand list — this catches lookalike domains for brands we don't
+  // track at all.
+  const candidateHosts = [sDomain, ...urls.map(domainOf)].filter((d): d is string => Boolean(d));
+  for (const host of candidateHosts) {
+    const mixedScript = mixedScriptOf(host);
+    if (mixedScript) {
+      indicators.push({
+        id: "homograph-mixed-script",
+        category: "sender",
+        label: "Mixed-script lookalike domain",
+        detail: `Domain "${host}" mixes Latin characters with ${mixedScript} look-alike characters — a classic trick to visually impersonate a trusted domain.`,
+        weight: 30,
+      });
+      break;
+    }
+    if (hasPunycodeLabel(host)) {
+      indicators.push({
+        id: "homograph-punycode",
+        category: "sender",
+        label: "Internationalized domain name (punycode)",
+        detail: `Domain "${host}" is IDN-encoded (punycode). Legitimate for some sites, but frequently used to render lookalike characters for well-known brands.`,
+        weight: 18,
       });
       break;
     }
@@ -301,6 +390,13 @@ export function analyze(input: AnalysisInput): AnalysisResult {
     });
   }
 
+  return scoreResult(indicators, urls);
+}
+
+// Exposed so callers (e.g. the API route merging in results from the Python
+// enrichment service) can recompute score/level after appending indicators
+// from another source, using the exact same scoring rules.
+export function scoreResult(indicators: Indicator[], urls: string[]): AnalysisResult {
   const rawScore = indicators.reduce((sum, i) => sum + i.weight, 0);
   const score = Math.min(100, rawScore);
 
@@ -311,3 +407,5 @@ export function analyze(input: AnalysisInput): AnalysisResult {
 
   return { score, level, indicators, urls };
 }
+
+export { senderDomain };

@@ -14,10 +14,36 @@ export type ScanRecord = {
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const DATA_FILE = path.join(DATA_DIR, "scans.json");
+const MAX_RECORDS = 500;
 
-function ensureStore(): void {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, JSON.stringify(seedData(), null, 2));
+// In-memory is the source of truth for the running process. Disk is best-effort
+// persistence for local dev convenience only — writes are wrapped so the app
+// keeps working even on read-only filesystems (e.g. serverless platforms where
+// only /tmp is writable). This also avoids the read-modify-write race that a
+// pure file-backed store would have under concurrent requests, since mutations
+// happen synchronously against the in-memory array.
+let cache: ScanRecord[] | null = null;
+
+function loadCache(): ScanRecord[] {
+  if (cache) return cache;
+  try {
+    const raw = fs.readFileSync(DATA_FILE, "utf-8");
+    cache = JSON.parse(raw) as ScanRecord[];
+  } catch {
+    cache = seedData();
+    persist();
+  }
+  return cache;
+}
+
+function persist(): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(cache, null, 2));
+  } catch {
+    // Read-only filesystem or other disk error — history for this process
+    // still works from the in-memory cache, it just won't survive a restart.
+  }
 }
 
 function seedData(): ScanRecord[] {
@@ -86,26 +112,24 @@ function seedData(): ScanRecord[] {
 }
 
 export function addScan(record: Omit<ScanRecord, "id" | "createdAt">): ScanRecord {
-  ensureStore();
-  const all: ScanRecord[] = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+  const all = loadCache();
   const full: ScanRecord = {
     ...record,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: new Date().toISOString(),
   };
   all.unshift(full);
-  fs.writeFileSync(DATA_FILE, JSON.stringify(all.slice(0, 500), null, 2));
+  if (all.length > MAX_RECORDS) all.length = MAX_RECORDS;
+  persist();
   return full;
 }
 
 export function listScans(org?: string): ScanRecord[] {
-  ensureStore();
-  const all: ScanRecord[] = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+  const all = loadCache();
   return org && org !== "All" ? all.filter((s) => s.org === org) : all;
 }
 
 export function listOrgs(): string[] {
-  ensureStore();
-  const all: ScanRecord[] = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+  const all = loadCache();
   return Array.from(new Set(all.map((s) => s.org))).sort();
 }

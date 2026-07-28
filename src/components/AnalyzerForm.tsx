@@ -8,6 +8,7 @@ import type { Indicator } from "@/lib/phishing-engine";
 type AnalyzeResponse = {
   result: { score: number; level: string; indicators: Indicator[]; urls: string[] };
   aiExplanation?: string;
+  aiStatus?: "disabled" | "ok" | "timeout" | "error";
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -52,7 +53,7 @@ export function AnalyzerForm() {
         throw new Error(err.error ?? "Analysis failed");
       }
       const record = await res.json();
-      setData({ result: record.result, aiExplanation: record.aiExplanation });
+      setData({ result: record.result, aiExplanation: record.aiExplanation, aiStatus: record.aiStatus });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -150,6 +151,13 @@ export function AnalyzerForm() {
                   {data.aiExplanation}
                 </p>
               </div>
+            )}
+
+            {(data.aiStatus === "timeout" || data.aiStatus === "error") && (
+              <p className="text-xs text-black/40 dark:text-white/40">
+                AI summary unavailable ({data.aiStatus === "timeout" ? "request timed out" : "service error"}) —
+                showing heuristic results only.
+              </p>
             )}
 
             <div className="rounded-xl border border-black/10 dark:border-white/10">

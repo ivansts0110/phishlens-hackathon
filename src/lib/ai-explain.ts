@@ -1,13 +1,21 @@
 import type { AnalysisResult } from "./phishing-engine";
 
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
+const TIMEOUT_MS = 8000;
+
+export type AIExplainStatus = "disabled" | "ok" | "timeout" | "error";
+
+export type AIExplainResult = {
+  text: string | null;
+  status: AIExplainStatus;
+};
 
 export async function explainWithAI(
   input: { sender: string; subject: string; body: string },
   result: AnalysisResult,
-): Promise<string | null> {
+): Promise<AIExplainResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) return { text: null, status: "disabled" };
 
   const indicatorSummary = result.indicators.length
     ? result.indicators.map((i) => `- ${i.label}: ${i.detail}`).join("\n")
@@ -24,6 +32,9 @@ Heuristic risk score: ${result.score}/100 (${result.level})
 Detected indicators:
 ${indicatorSummary}`;
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -37,18 +48,22 @@ ${indicatorSummary}`;
         max_tokens: 300,
         messages: [{ role: "user", content: prompt }],
       }),
+      signal: controller.signal,
     });
 
     if (!res.ok) {
       console.error("Anthropic API error", res.status, await res.text());
-      return null;
+      return { text: null, status: "error" };
     }
 
     const data = await res.json();
     const text = data?.content?.[0]?.text;
-    return typeof text === "string" ? text.trim() : null;
+    return typeof text === "string" ? { text: text.trim(), status: "ok" } : { text: null, status: "error" };
   } catch (err) {
-    console.error("Anthropic API call failed", err);
-    return null;
+    const timedOut = err instanceof Error && err.name === "AbortError";
+    console.error(timedOut ? "Anthropic API call timed out" : "Anthropic API call failed", err);
+    return { text: null, status: timedOut ? "timeout" : "error" };
+  } finally {
+    clearTimeout(timer);
   }
 }
