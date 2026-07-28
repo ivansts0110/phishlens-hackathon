@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# runtime scan history (seeded automatically on first run)
+/data
 
 # vercel
 .vercel
