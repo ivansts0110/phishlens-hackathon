@@ -6,18 +6,18 @@ import type { ScanRecord } from "@/lib/store";
 
 const LEVEL_ORDER = ["Low", "Medium", "High", "Critical"] as const;
 
-const LEVEL_DOT: Record<string, string> = {
-  Low: "bg-emerald-500",
-  Medium: "bg-amber-500",
-  High: "bg-orange-500",
-  Critical: "bg-red-600",
+const LEVEL_COLOR: Record<string, string> = {
+  Low: "bg-green-600",
+  Medium: "bg-yellow-600",
+  High: "bg-orange-600",
+  Critical: "bg-red-700",
 };
 
 const LEVEL_TEXT: Record<string, string> = {
-  Low: "text-emerald-600 dark:text-emerald-400",
-  Medium: "text-amber-600 dark:text-amber-400",
-  High: "text-orange-600 dark:text-orange-400",
-  Critical: "text-red-600 dark:text-red-400",
+  Low: "text-green-700 dark:text-green-400",
+  Medium: "text-yellow-700 dark:text-yellow-400",
+  High: "text-orange-700 dark:text-orange-400",
+  Critical: "text-red-700 dark:text-red-400",
 };
 
 export default function Dashboard() {
@@ -68,7 +68,7 @@ export default function Dashboard() {
             <select
               value={org}
               onChange={(e) => setOrg(e.target.value)}
-              className="rounded-lg border border-black/10 bg-transparent px-3 py-1.5 outline-none focus:border-indigo-500 dark:border-white/15"
+              className="border border-black/30 bg-transparent px-3 py-1.5 outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
             >
               <option value="All">All organizations</option>
               {orgs.map((o) => (
@@ -90,30 +90,30 @@ export default function Dashboard() {
           <StatTile label="Top indicator" value={stats.topIndicator?.[0] ?? "—"} small />
         </div>
 
-        <div className="mb-8 rounded-xl border border-black/10 p-5 dark:border-white/10">
+        <div className="mb-8 border border-black/30 p-5 dark:border-white/30">
           <p className="mb-3 text-sm font-semibold">Risk distribution</p>
-          <div className="flex h-3 w-full overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+          <div className="flex h-3 w-full overflow-hidden border border-black/30 dark:border-white/30">
             {LEVEL_ORDER.map((level) => {
               const count = stats.byLevel[level] ?? 0;
               const pct = stats.total ? (count / stats.total) * 100 : 0;
               return pct > 0 ? (
-                <div key={level} className={LEVEL_DOT[level]} style={{ width: `${pct}%` }} />
+                <div key={level} className={LEVEL_COLOR[level]} style={{ width: `${pct}%` }} />
               ) : null;
             })}
           </div>
           <div className="mt-3 flex flex-wrap gap-4 text-xs">
             {LEVEL_ORDER.map((level) => (
               <span key={level} className="flex items-center gap-1.5">
-                <span className={`h-2 w-2 rounded-full ${LEVEL_DOT[level]}`} />
+                <span className={`h-2 w-2 ${LEVEL_COLOR[level]}`} />
                 {level} ({stats.byLevel[level] ?? 0})
               </span>
             ))}
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
+        <div className="overflow-hidden border border-black/30 dark:border-white/30">
           <table className="w-full text-sm">
-            <thead className="border-b border-black/10 bg-black/[0.02] text-left text-xs uppercase tracking-wide text-black/50 dark:border-white/10 dark:bg-white/[0.02] dark:text-white/50">
+            <thead className="border-b border-black/30 text-left text-xs uppercase tracking-wide text-black/60 dark:border-white/30 dark:text-white/60">
               <tr>
                 <th className="px-4 py-3 font-medium">Time</th>
                 <th className="px-4 py-3 font-medium">Organization</th>
@@ -122,7 +122,7 @@ export default function Dashboard() {
                 <th className="px-4 py-3 font-medium text-right">Score</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-black/5 dark:divide-white/5">
+            <tbody className="divide-y divide-black/15 dark:divide-white/15">
               {loading && (
                 <tr>
                   <td colSpan={5} className="px-4 py-6 text-center text-black/50 dark:text-white/50">
@@ -165,8 +165,8 @@ export default function Dashboard() {
 
 function StatTile({ label, value, small }: { label: string; value: string; small?: boolean }) {
   return (
-    <div className="rounded-xl border border-black/10 p-4 dark:border-white/10">
-      <p className="text-xs font-medium uppercase tracking-wide text-black/50 dark:text-white/50">{label}</p>
+    <div className="border border-black/30 p-4 dark:border-white/30">
+      <p className="text-xs font-medium uppercase tracking-wide text-black/60 dark:text-white/60">{label}</p>
       <p className={`mt-1.5 font-semibold ${small ? "truncate text-sm" : "text-2xl"}`}>{value}</p>
     </div>
   );

@@ -70,7 +70,7 @@ export function AnalyzerForm() {
               key={s.key}
               type="button"
               onClick={() => loadSample(s.key)}
-              className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-medium text-black/70 transition hover:border-indigo-500 hover:text-indigo-600 dark:border-white/15 dark:text-white/70 dark:hover:text-indigo-400"
+              className="border border-black/30 px-3 py-1.5 text-xs font-medium hover:bg-black/5 dark:border-white/30 dark:hover:bg-white/10"
             >
               {s.label}
             </button>
@@ -83,7 +83,7 @@ export function AnalyzerForm() {
             value={org}
             onChange={(e) => setOrg(e.target.value)}
             placeholder="Acme Corp"
-            className="rounded-lg border border-black/10 bg-transparent px-3 py-2 outline-none focus:border-indigo-500 dark:border-white/15"
+            className="border border-black/30 bg-transparent px-3 py-2 outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
           />
         </label>
 
@@ -93,7 +93,7 @@ export function AnalyzerForm() {
             value={sender}
             onChange={(e) => setSender(e.target.value)}
             placeholder="Display Name <address@domain.com>"
-            className="rounded-lg border border-black/10 bg-transparent px-3 py-2 outline-none focus:border-indigo-500 dark:border-white/15"
+            className="border border-black/30 bg-transparent px-3 py-2 outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
           />
         </label>
 
@@ -103,7 +103,7 @@ export function AnalyzerForm() {
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Email subject line"
-            className="rounded-lg border border-black/10 bg-transparent px-3 py-2 outline-none focus:border-indigo-500 dark:border-white/15"
+            className="border border-black/30 bg-transparent px-3 py-2 outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
           />
         </label>
 
@@ -115,66 +115,62 @@ export function AnalyzerForm() {
             required
             rows={10}
             placeholder="Paste the full email or message text here..."
-            className="rounded-lg border border-black/10 bg-transparent px-3 py-2 font-mono text-xs outline-none focus:border-indigo-500 dark:border-white/15"
+            className="border border-black/30 bg-transparent px-3 py-2 font-mono text-xs outline-none focus:border-black dark:border-white/30 dark:focus:border-white"
           />
         </label>
 
         <button
           type="submit"
           disabled={loading}
-          className="rounded-lg bg-indigo-600 px-4 py-2.5 font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
+          className="border border-black bg-black px-4 py-2.5 font-medium text-white hover:bg-black/80 disabled:opacity-50 dark:border-white dark:bg-white dark:text-black dark:hover:bg-white/80"
         >
           {loading ? "Analyzing…" : "Analyze message"}
         </button>
-        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
       </form>
 
       <div className="flex flex-col gap-4">
         {!data && (
-          <div className="flex h-full min-h-72 flex-col items-center justify-center rounded-xl border border-dashed border-black/15 p-8 text-center text-sm text-black/50 dark:border-white/15 dark:text-white/50">
+          <div className="flex h-full min-h-72 flex-col items-center justify-center border border-dashed border-black/30 p-8 text-center text-sm text-black/60 dark:border-white/30 dark:text-white/60">
             Paste a message (or load a sample) and click Analyze to see the risk breakdown.
           </div>
         )}
 
         {data && (
           <>
-            <div className="flex items-center justify-center rounded-xl border border-black/10 p-6 dark:border-white/10">
+            <div className="flex items-center justify-center border border-black/30 p-6 dark:border-white/30">
               <RiskGauge score={data.result.score} level={data.result.level} />
             </div>
 
             {data.aiExplanation && (
-              <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
-                  AI summary
-                </p>
-                <p className="whitespace-pre-line text-sm text-black/80 dark:text-white/80">
-                  {data.aiExplanation}
-                </p>
+              <div className="border border-black/30 p-4 dark:border-white/30">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide">AI summary</p>
+                <p className="whitespace-pre-line text-sm">{data.aiExplanation}</p>
               </div>
             )}
 
             {(data.aiStatus === "timeout" || data.aiStatus === "error") && (
-              <p className="text-xs text-black/40 dark:text-white/40">
+              <p className="text-xs text-black/50 dark:text-white/50">
                 AI summary unavailable ({data.aiStatus === "timeout" ? "request timed out" : "service error"}) —
                 showing heuristic results only.
               </p>
             )}
 
-            <div className="rounded-xl border border-black/10 dark:border-white/10">
-              <p className="border-b border-black/10 px-4 py-3 text-sm font-semibold dark:border-white/10">
+            <div className="border border-black/30 dark:border-white/30">
+              <p className="border-b border-black/30 px-4 py-3 text-sm font-semibold dark:border-white/30">
                 Detected indicators {data.result.indicators.length === 0 && "— none"}
               </p>
-              <ul className="divide-y divide-black/5 dark:divide-white/5">
+              <ul className="divide-y divide-black/15 dark:divide-white/15">
                 {data.result.indicators.map((ind) => (
                   <li key={ind.id} className="flex items-start gap-3 px-4 py-3">
-                    <span className="mt-0.5 shrink-0 rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-medium text-black/60 dark:bg-white/10 dark:text-white/60">
+                    <span className="mt-0.5 shrink-0 border border-black/30 px-1.5 py-0.5 text-[11px] font-medium dark:border-white/30">
                       {CATEGORY_LABEL[ind.category]}
                     </span>
                     <div className="text-sm">
                       <p className="font-medium">{ind.label}</p>
                       <p className="text-black/60 dark:text-white/60">{ind.detail}</p>
                     </div>
-                    <span className="ml-auto shrink-0 text-xs font-semibold text-black/40 dark:text-white/40">
+                    <span className="ml-auto shrink-0 text-xs font-semibold text-black/50 dark:text-white/50">
                       +{ind.weight}
                     </span>
                   </li>
@@ -183,7 +179,7 @@ export function AnalyzerForm() {
             </div>
 
             {data.result.urls.length > 0 && (
-              <div className="rounded-xl border border-black/10 p-4 dark:border-white/10">
+              <div className="border border-black/30 p-4 dark:border-white/30">
                 <p className="mb-2 text-sm font-semibold">Extracted links</p>
                 <ul className="space-y-1 font-mono text-xs text-black/60 dark:text-white/60">
                   {data.result.urls.map((u) => (
