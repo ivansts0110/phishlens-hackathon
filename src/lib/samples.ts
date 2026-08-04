@@ -46,6 +46,24 @@ Reply-To: support@docusign-notice.top
 DocuSign Notifications`,
   },
   {
+    key: "homograph",
+    label: "Cyrillic lookalike domain",
+    org: "Acme Corp",
+    sender: "Apple Support <security@аррӏе.com>",
+    subject: "Your Apple ID has been locked",
+    body: `Dear Customer,
+
+Your Apple ID was used to sign in to a device we do not recognise. For your protection we have temporarily locked the account.
+
+Confirm your identity and reset your password here:
+
+https://аррӏе.com/account/verify
+
+If you do not confirm within 24 hours your Apple ID will be permanently disabled.
+
+Apple Support`,
+  },
+  {
     key: "safe",
     label: "Legitimate internal email",
     org: "Acme Corp",

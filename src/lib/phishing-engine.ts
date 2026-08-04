@@ -165,10 +165,11 @@ const CONFUSABLE_SCRIPTS: { name: string; pattern: RegExp }[] = [
 ];
 
 function mixedScriptOf(hostname: string): string | null {
-  const hasLatin = /[a-zA-Z]/.test(hostname);
-  if (!hasLatin) return null;
-  for (const script of CONFUSABLE_SCRIPTS) {
-    if (script.pattern.test(hostname)) return script.name;
+  for (const label of hostname.split(".")) {
+    if (!/[a-zA-Z]/.test(label)) continue;
+    for (const script of CONFUSABLE_SCRIPTS) {
+      if (script.pattern.test(label)) return script.name;
+    }
   }
   return null;
 }

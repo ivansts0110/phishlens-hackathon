@@ -112,3 +112,21 @@ test("typosquat of a long brand label is still caught", () => {
   });
   assert.ok(result.indicators.some((i) => i.id === "impersonation-paypal.com"));
 });
+
+test("a legitimate non-Latin domain is not flagged as mixed-script", () => {
+  const result = analyze({
+    sender: "Магазин <info@пример.com>",
+    subject: "Заказ подтверждён",
+    body: "Спасибо за покупку: https://пример.com/orders",
+  });
+  assert.ok(!result.indicators.some((i) => i.id === "homograph-mixed-script"));
+});
+
+test("a domain label mixing Latin and Cyrillic is still flagged", () => {
+  const result = analyze({
+    sender: "Apple <support@аpple.com>",
+    subject: "Verify your account",
+    body: "Sign in at https://аpple.com/verify",
+  });
+  assert.ok(result.indicators.some((i) => i.id === "homograph-mixed-script"));
+});

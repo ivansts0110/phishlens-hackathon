@@ -28,10 +28,14 @@ into a demo — can see exactly why a message is dangerous.
    - Brand impersonation across ~48 commonly-spoofed brands: display name claims a
      brand but the domain doesn't match, the domain is a close typo, *or* the brand
      name is simply stuffed into an unrelated domain with no display-name claim at all
-   - Homograph / lookalike-domain detection: mixed-script domains (Latin mixed with
-     Cyrillic/Greek look-alike characters) and punycode-encoded (IDN) domains — this
+   - Homograph / lookalike-domain detection: punycode-encoded (IDN) domains, and
+     domains where a single label mixes Latin with Cyrillic/Greek look-alike
+     characters. The per-label check matters — testing the whole hostname at once
+     flags any non-Latin domain on a `.com` TLD, since `com` is itself Latin. This
      runs independently of the brand list, so it also catches impersonation of brands
-     PhishLens doesn't know about
+     PhishLens doesn't know about. A label written *entirely* in one non-Latin script
+     is invisible to this check by construction; that case needs the full Unicode
+     confusables table and is handled by the Python layer below.
    - Suspicious links: raw IP-address URLs, URL shorteners, abused top-level domains,
      and link text that doesn't match its actual destination
    - Urgency and threat language, credential/payment-harvesting phrasing, generic
