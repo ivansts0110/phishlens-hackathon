@@ -198,15 +198,18 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
   const sDomain = senderDomain(input.sender);
   const displayName = senderDisplayName(input.sender).toLowerCase();
 
+  const senderIsKnownBrand =
+    !!sDomain &&
+    KNOWN_BRANDS.some((b) => sDomain === b.domain || sDomain.endsWith(`.${b.domain}`));
+
   for (const brand of KNOWN_BRANDS) {
-    const isRealDomain = sDomain === brand.domain || (sDomain?.endsWith(`.${brand.domain}`) ?? false);
-    if (isRealDomain || !sDomain) continue;
+    if (!sDomain || senderIsKnownBrand) break;
 
     const brandLabel = brand.domain.split(".")[0];
     const domainLabel = sDomain.split(".")[0];
     const claimsBrandInName = displayName.includes(brand.name.toLowerCase());
     const domainEmbedsBrand = sDomain.replace(/[^a-z0-9]/g, "").includes(brandLabel.replace(/[^a-z0-9]/g, ""));
-    const closeTypo = levenshtein(domainLabel, brandLabel) <= 2;
+    const closeTypo = levenshtein(domainLabel, brandLabel) <= (brandLabel.length <= 5 ? 1 : 2);
 
     if (claimsBrandInName || domainEmbedsBrand || closeTypo) {
       const reason = claimsBrandInName

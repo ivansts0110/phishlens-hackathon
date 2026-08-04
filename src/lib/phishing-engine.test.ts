@@ -85,3 +85,30 @@ Attachment: invoice.exe`,
   assert.ok(result.score <= 100);
   assert.equal(result.level, "Critical");
 });
+
+test("a legitimate brand domain is never flagged as impersonating a similar brand", () => {
+  const result = analyze({
+    sender: "GitHub <noreply@github.com>",
+    subject: "Your weekly digest",
+    body: "Here are the repositories you follow this week: https://github.com/explore",
+  });
+  assert.ok(!result.indicators.some((i) => i.id.startsWith("impersonation-")));
+});
+
+test("usps.com is not flagged as impersonating UPS", () => {
+  const result = analyze({
+    sender: "USPS <tracking@usps.com>",
+    subject: "Your package is on the way",
+    body: "Track your shipment at https://usps.com/tracking",
+  });
+  assert.ok(!result.indicators.some((i) => i.id.startsWith("impersonation-")));
+});
+
+test("typosquat of a long brand label is still caught", () => {
+  const result = analyze({
+    sender: "Support <billing@paypal-billing.com>",
+    subject: "Invoice",
+    body: "See attached.",
+  });
+  assert.ok(result.indicators.some((i) => i.id === "impersonation-paypal.com"));
+});

@@ -6,32 +6,61 @@ network calls (DNS, WHOIS) or are more naturally solved with Python's
 ecosystem (scikit-learn) than with the synchronous, request-scoped rules
 engine on the Node side.
 
-**Current state: contract + stub only.** `app.py` defines the API shape and
-returns empty/placeholder data so the rest of the app runs end-to-end today.
-The actual detection logic is unimplemented — that's the assignment. See the
-handoff brief for full context; this file is the technical reference to work
-against while building.
+## What it checks
+
+All five checks run concurrently, each with its own timeout, under a total
+budget of 3.2s — the Node caller gives up at 4s, and a single WHOIS lookup
+can take three of those on its own.
+
+| Check | Signal | Indicator |
+|---|---|---|
+| WHOIS creation date | Domain age in days | `domain-newly-registered` (28, <30d), `domain-recently-registered` (14, <180d) |
+| SPF | TXT record present | `enrich-spf-missing` (15) |
+| DMARC | `_dmarc` policy | `enrich-dmarc-absent` (12), `enrich-dmarc-none` (8) |
+| DKIM | Common selector probe | none — reported in `meta` only, see below |
+| Confusables | Look-alike domain | `enrich-confusable-domain` (18) |
+
+**DKIM is deliberately not scored.** Probing common selectors
+(`google`, `default`, `selector1`, …) can't find a key published under a
+custom selector, and Google is exactly such a case — an early version docked
+points from `google.com`. For a security tool, false-positiving the most
+recognisable domain on the internet costs more trust than the signal is
+worth, so `dkim_valid` is returned as context and never scored.
 
 ## Why this exists as a separate check
 
 The Node engine already does two lightweight, dependency-free checks that
-might look similar to what's asked here — worth understanding the difference
-so effort isn't duplicated:
+might look similar — worth understanding the difference:
 
 - **Impersonation check** (`phishing-engine.ts`): string-matches a small
   hardcoded list of ~48 brand names/domains. Zero network calls, catches
   nothing outside that list.
 - **Basic homograph check** (`mixedScriptOf` / `hasPunycodeLabel` in the same
   file): flags a domain if it visibly mixes Latin with Cyrillic/Greek
-  characters, or is punycode-encoded. This is a coarse, single-pass string
-  check — it doesn't use a real confusable-character table, so it misses
-  subtler substitutions (e.g. Cyrillic "е" that renders identically to Latin
-  "e" but isn't in the two script ranges checked). Prefer a proper library
-  (e.g. `confusable_homoglyphs`) here.
+  characters, or is punycode-encoded.
 
-Everything else below — domain age, SPF/DKIM/DMARC, a trained classifier —
-has no equivalent on the Node side at all. That's genuinely new signal, not
-a rebuild of something that already exists.
+The confusables check here is strictly stronger than that second one, in two
+ways:
+
+1. **Full Unicode confusables table** (via `confusable_homoglyphs`) rather
+   than two hardcoded script ranges, so it catches substitutions the coarse
+   check misses.
+2. **Whole-script confusables**, which the library itself does not flag.
+   `is_dangerous()` only detects *mixed*-script labels, so a domain written
+   entirely in Cyrillic sails through it — including `xn--80ak6aa92e.com`,
+   which renders as `аррӏе.com` and is the best-known homograph attack there
+   is. `_is_whole_script_confusable` closes that gap: it maps every character
+   to its ASCII look-alike and flags the label only if *all* of them map,
+   meaning the label is a wholesale imitation of an ASCII word.
+
+That second rule is what keeps legitimate non-Latin domains clean. `пример.рф`
+contains Cyrillic characters with Latin look-alikes, but `п` has no ASCII
+confusable at all, so the label doesn't fully map and isn't flagged. Verified
+against a corpus of 7 attack domains and 18 legitimate ones, including
+Cyrillic and Chinese IDNs, with no false positives either way.
+
+Domain age and SPF/DMARC have no equivalent on the Node side at all. That's
+genuinely new signal, not a rebuild of something that already exists.
 
 ## Contract
 
@@ -69,10 +98,14 @@ Response:
     "dkim_valid": null,
     "dmarc_policy": "none",
     "homoglyph_flag": false,
-    "ml_phishing_probability": 0.94
+    "ml_phishing_probability": null
   }
 }
 ```
+
+`ml_phishing_probability` is reserved for a trained classifier and always
+returns `null` today. It's part of the response shape so adding one later
+doesn't break the contract; nothing consumes it yet.
 
 **Rules for `indicators`:**
 - `category` must be exactly one of `"sender" | "links" | "content" | "urgency"`

@@ -89,12 +89,27 @@ into a demo — can see exactly why a message is dangerous.
    8s timeout; if it's slow, errors, or the key isn't set, the app falls back to
    heuristic-only results and says so in the UI rather than silently doing nothing.
 
-7. **Optional Python enrichment layer** (`python-service/`) — a second signal source
-   for things that need a network call (WHOIS domain age, live SPF/DKIM/DMARC record
-   lookups for pasted messages that have no headers) or are more naturally solved in
-   Python (a trained phishing classifier). Same optional-dependency pattern as the AI
-   layer: unset `PYTHON_SERVICE_URL` or a down/slow service degrades gracefully, never
-   a hard failure. **This part is a contract + stub, not a finished feature** — see
+7. **Optional Python enrichment layer** (`python-service/`) — a FastAPI service
+   providing a second signal source for things that need a live network call, which
+   is exactly what a pasted message with no headers is missing: WHOIS domain age,
+   SPF and DMARC record lookups, and full-table Unicode confusables detection. All
+   checks run concurrently, each with its own timeout, under a 3.2s budget — the Node
+   caller gives up at 4s and a single WHOIS query can take three of them. Every check
+   fails closed to `null` ("couldn't determine"), never an exception.
+
+   The confusables check is stronger than the Node-side one in a specific way worth
+   knowing: standard mixed-script detection misses domains written *entirely* in a
+   non-Latin script, so `xn--80ak6aa92e.com` — which renders as `аррӏе.com`, the
+   best-known homograph attack there is — passes it. This layer maps each character
+   to its ASCII look-alike and flags the label only when all of them map, catching
+   whole-script imitation while leaving genuine non-Latin domains (`пример.рф`,
+   `中国.cn`) alone.
+
+   DKIM is checked but deliberately **not scored** — probing common selectors can't
+   see a key published under a custom one, and an early version docked points from
+   `google.com` because of it. It's returned as context instead. Same
+   optional-dependency pattern as the AI layer: unset `PYTHON_SERVICE_URL` or a
+   down/slow service degrades gracefully, never a hard failure. See
    `python-service/README.md`.
 
 8. **Multi-tenant scan history** (`src/lib/store.ts`) — every scan is tagged with an
@@ -183,7 +198,7 @@ src/
     samples.ts                    canned demo messages
 docs/samples/phishing-sample.eml  demo email with failing auth + spoofed headers
 python-service/
-  app.py                         FastAPI contract + stub (see its own README)
+  app.py                         FastAPI enrichment: WHOIS age, SPF/DMARC, confusables
   requirements.txt
 ```
 
@@ -204,8 +219,16 @@ Being upfront about these rather than papering over them:
   is inherent — the evidence simply isn't present in pasted text.
 - **The brand-impersonation list is finite** (~48 well-known brands). Impersonation of
   anything outside it relies on the homograph/typo checks catching it, or on the
-  Python enrichment layer's domain-intelligence signals (domain age, SPF/DKIM/DMARC)
-  once those are built.
+  Python enrichment layer's domain-intelligence signals (domain age, SPF/DMARC,
+  confusables), which are brand-agnostic.
+- **The Python layer's DKIM check is informational, not scored**, because selector
+  probing produces false negatives on domains using custom selectors. A real
+  deployment would read the DKIM result from the receiving server's
+  `Authentication-Results` header instead — which PhishLens already does for uploaded
+  `.eml` files.
+- **WHOIS coverage is uneven across TLDs.** Some registries rate-limit or withhold
+  creation dates, in which case domain age returns "couldn't determine" rather than a
+  wrong answer — so the absence of an age indicator is not evidence a domain is old.
 - **The in-memory store is single-process.** It survives concurrent requests within
   one running server (no read-modify-write race), and persists to disk best-effort
   for local dev convenience, but on a multi-instance serverless deploy each instance
@@ -219,7 +242,8 @@ Being upfront about these rather than papering over them:
 
 - Real inbox integration (Gmail/Outlook add-in) instead of copy-paste / file upload
 - Persistent shared database + auth instead of a local JSON store
-- Finish the Python enrichment layer (see `python-service/README.md`)
+- A trained phishing classifier in the Python layer (`ml_phishing_probability` is
+  already in the response contract, currently always `null`)
 - Attachment content scanning, not just filename heuristics
 
 ## Team
