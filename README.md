@@ -249,4 +249,3 @@ Being upfront about these rather than papering over them:
 ## Team
 
 [Ivan S.](https://linkedin.com/in/ivan-stashchak)
-Philip G.M.
