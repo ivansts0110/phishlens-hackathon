@@ -19,24 +19,37 @@ const DATA_FILE = path.join(DATA_DIR, "scans.json");
 const MAX_RECORDS = 500;
 
 let cache: ScanRecord[] | null = null;
+let cacheKey = "";
+let memoryOnly = false;
+
+function fileKey(): string {
+  const { mtimeMs, size } = fs.statSync(DATA_FILE);
+  return `${mtimeMs}:${size}`;
+}
 
 function loadCache(): ScanRecord[] {
-  if (cache) return cache;
+  if (cache && memoryOnly) return cache;
   try {
-    const raw = fs.readFileSync(DATA_FILE, "utf-8");
-    cache = JSON.parse(raw) as ScanRecord[];
+    const key = fileKey();
+    if (cache && key === cacheKey) return cache;
+    cache = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8")) as ScanRecord[];
+    cacheKey = key;
+    return cache;
   } catch {
+    if (cache) return cache;
     cache = seedData();
     persist();
+    return cache;
   }
-  return cache;
 }
 
 function persist(): void {
   try {
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     fs.writeFileSync(DATA_FILE, JSON.stringify(cache, null, 2));
+    cacheKey = fileKey();
   } catch {
+    memoryOnly = true;
   }
 }
 
