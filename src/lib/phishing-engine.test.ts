@@ -130,3 +130,12 @@ test("a domain label mixing Latin and Cyrillic is still flagged", () => {
   });
   assert.ok(result.indicators.some((i) => i.id === "homograph-mixed-script"));
 });
+
+test("a legitimate IDN domain is not pushed out of the Low band by punycode alone", () => {
+  const result = analyze({
+    sender: "Информация <info@пример.com>",
+    subject: "Новости",
+    body: "Подробности на сайте: https://пример.com/news",
+  });
+  assert.equal(result.level, "Low");
+});

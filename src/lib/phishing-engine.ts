@@ -247,8 +247,8 @@ export function analyze(input: AnalysisInput, options: { hardened?: boolean } = 
         id: "homograph-punycode",
         category: "sender",
         label: "Internationalized domain name (punycode)",
-        detail: `Domain "${host}" is IDN-encoded (punycode). Legitimate for some sites, but frequently used to render lookalike characters for well-known brands.`,
-        weight: 18,
+        detail: `Domain "${host}" is IDN-encoded (punycode). This is normal for the non-English web and is not suspicious on its own — it is scored low deliberately. What matters is whether the decoded name imitates a familiar brand, which the confusables check determines separately.`,
+        weight: 6,
       });
       break;
     }
