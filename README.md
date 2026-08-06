@@ -2,12 +2,19 @@
 
 **Real-time phishing & social-engineering detection for email and messages.**
 
-Built for the Cybersecurity track. PhishLens takes a raw email or message (sender,
-subject, body) and returns an explainable risk score in real time — no ML training
-data or third-party threat-intel subscription required — plus an optional
-AI-generated plain-English summary, an optional Python domain-intelligence layer,
-and a multi-tenant dashboard so a security team can see trends across an
-organization.
+Built for the Cybersecurity track — and built solo, mostly as an excuse to get
+properly good at Next.js, TypeScript, Tailwind, and Python. The idea started with a
+video of a scam-baiter tearing apart an email scammer, and being genuinely impressed
+by how elaborate the evasion techniques on both sides have gotten. This is my first
+hackathon, so I wanted to see what I could actually finish under a real deadline —
+and to see how far a local agentic LLM could get me if I was honest about what to
+keep and what to throw away.
+
+PhishLens takes a raw email or message (sender, subject, body) and returns an
+explainable risk score in real time — no ML training data or third-party
+threat-intel subscription required — plus an optional AI-generated plain-English
+summary, an optional Python domain-intelligence layer, and a multi-tenant dashboard
+so a security team can see trends across an organization.
 
 ![Analyzer result view](docs/screenshots/analyzer-result.png)
 
@@ -16,9 +23,11 @@ organization.
 Phishing remains the single most common entry point for breaches, and most existing
 tools are either heavyweight enterprise email-security suites (expensive, opaque) or
 naive keyword blockers (easy to evade, no explanation of *why* something was flagged).
-PhishLens focuses on **explainability**: every score is broken down into the specific
-indicators that triggered it, so a non-technical employee — or a judge three minutes
-into a demo — can see exactly why a message is dangerous.
+PhishLens focuses on **explainability**: it doesn't hand you a verdict, it hands you a
+suggestion built out of a score you can actually audit. Every point is attributable to
+a specific, human-readable indicator, so a non-technical employee — or a judge three
+minutes into a demo — can see exactly why a message is dangerous. Bigger threats score
+more points; nothing is a black box.
 
 ## How it works
 
@@ -45,15 +54,18 @@ into a demo — can see exactly why a message is dangerous.
    Every trigger is a scored, human-readable indicator, not a black-box number.
 
 2. **Adversarial Red-Team Lab** (`/lab`, `src/lib/adversary.ts`, unit-tested in
-   `adversary.test.ts`) — the headline feature: PhishLens attacks *its own detector*.
-   Give it a message flagged as phishing and it plays the adversary, applying one
-   evasion technique at a time (invisible-character injection, urgency/threat
-   paraphrasing, sender neutralization, link laundering) and keeping whichever lowers
-   the risk score most — a live step-by-step "descent" from Critical to Low. Every
-   successful evasion is turned into a concrete hardening recommendation, and the
-   fully-evaded message is re-scored against the *hardened* detector to prove which
-   attacks PhishLens already defeats (invisible-character injection is neutralized by
-   the Unicode-normalization hardening this feature motivated) versus which are
+   `adversary.test.ts`) — my favorite part of this project, and the headline feature:
+   PhishLens attacks *its own detector*. Give it a message flagged as phishing and it
+   plays the adversary, applying one evasion technique at a time (invisible-character
+   injection, urgency/threat paraphrasing, sender neutralization, link laundering,
+   greeting personalization) and keeping whichever one actually lowers the risk score
+   most — a live, step-by-step descent from Critical toward Low. This isn't an
+   animation; it's a real evasion operator run against the live score, so it can
+   legitimately fail to evade a message that's written well enough. Every successful
+   evasion is turned into a concrete hardening recommendation, and the fully-evaded
+   message is re-scored against the *hardened* detector to prove which attacks
+   PhishLens already defeats (invisible-character injection is neutralized by the
+   Unicode-normalization hardening this feature motivated) versus which are
    fundamental limits of content-only analysis — the exact justification for the
    header-forensics, link-tracing, and domain-intelligence layers below. It's a
    defensive tool: it red-teams our classifier and outputs defenses, it does not
@@ -73,6 +85,8 @@ into a demo — can see exactly why a message is dangerous.
      spoofing and invoice/executive-impersonation fraud.
    - The `Received:` delivery-hop chain, surfaced in the report.
 
+   ![Header forensics on an uploaded .eml](docs/screenshots/eml-analysis.png)
+
 4. **Safe link redirect tracer** (`src/lib/trace.ts`, `/api/trace`) — for any link
    found in a message, trace where it *actually* goes, hop by hop
    (`bit.ly/x → tracker → paypa1-support.com/login`), server-side, without the user's
@@ -87,6 +101,8 @@ into a demo — can see exactly why a message is dangerous.
    fire a Slack-compatible webhook (also works with Discord/Mattermost) — fire-and-forget,
    never blocking the scan.
 
+   ![Printable incident report](docs/screenshots/incident-report.png)
+
 6. **Optional AI layer** (`src/lib/ai-explain.ts`) — if `ANTHROPIC_API_KEY` is set,
    the app asks Claude to turn the indicator list into a 3–5 sentence plain-English
    explanation and recommended action for a non-technical recipient. Bounded by an
@@ -96,10 +112,14 @@ into a demo — can see exactly why a message is dangerous.
 7. **Optional Python enrichment layer** (`python-service/`) — a FastAPI service
    providing a second signal source for things that need a live network call, which
    is exactly what a pasted message with no headers is missing: WHOIS domain age,
-   SPF and DMARC record lookups, and full-table Unicode confusables detection. All
-   checks run concurrently, each with its own timeout, under a 3.2s budget — the Node
-   caller gives up at 4s and a single WHOIS query can take three of them. Every check
-   fails closed to `null` ("couldn't determine"), never an exception.
+   SPF and DMARC record lookups, DKIM context, and full-table Unicode confusables
+   detection. All five checks run concurrently, each with its own timeout, under a
+   3.2s total budget — the Node caller gives up at 4s, and a single WHOIS lookup alone
+   can take up to 3 of those seconds. Every check fails closed to `null`
+   ("couldn't determine"), never an exception — and that distinction matters. Treating
+   "couldn't determine" the same as "checked and clean" is how a lot of security
+   tooling quietly lies to its users; PhishLens keeps the two states separate
+   everywhere in the response contract.
 
    The confusables check is stronger than the Node-side one in a specific way worth
    knowing: standard mixed-script detection misses domains written *entirely* in a
@@ -107,7 +127,9 @@ into a demo — can see exactly why a message is dangerous.
    best-known homograph attack there is — passes it. This layer maps each character
    to its ASCII look-alike and flags the label only when all of them map, catching
    whole-script imitation while leaving genuine non-Latin domains (`пример.рф`,
-   `中国.cn`) alone.
+   `中国.cn`) alone. I hand-verified it against a set of known attack domains and a
+   set of legitimate non-Latin domains, including Cyrillic and Chinese IDNs, with no
+   false positives or false negatives in either direction.
 
    DKIM is checked but deliberately **not scored** — probing common selectors can't
    see a key published under a custom one, and an early version docked points from
@@ -118,9 +140,45 @@ into a demo — can see exactly why a message is dangerous.
 
 8. **Multi-tenant scan history** (`src/lib/store.ts`) — every scan is tagged with an
    organization and stored, powering the `/dashboard` view: total scans, average risk
-   score, risk distribution, and a searchable history table.
+   score, risk distribution, and a searchable history table. Honestly the least
+   polished part of the app at this stage, but it's there.
 
 ![Dashboard view](docs/screenshots/dashboard.png)
+
+## How it was built
+
+Next.js 16 with the App Router and Tailwind for the front end (still not great at
+Tailwind, working on it), TypeScript for the core engine, and a small FastAPI service
+in Python for anything that needs a live network call. No database yet — scan history
+is a JSON store, which is a real limitation and is called out below, not hidden.
+
+The one architectural decision that shaped everything else was making the heuristic
+engine a set of pure functions: an email goes in, a scored list of named indicators
+comes out — no classes, no shared state, no I/O. That single choice is what made the
+engine unit-testable, and — more importantly — it's what let the Red-Team Lab attack
+the *exact* function the product uses in production, instead of a stand-in copy of it.
+Because the scoring is entirely point-based, an attack either measurably lowers the
+score or it doesn't; there's no fuzzy middle ground to argue about.
+
+| Layer              | What it adds                                                     |
+| ------------------ | ----------------------------------------------------------------- |
+| Header forensics    | SPF/DKIM/DMARC verdicts and spoofing mismatches from a raw `.eml` |
+| Link tracer         | Real redirect destination, resolved server-side                   |
+| Python enrichment   | WHOIS age, live SPF/DMARC, full-table Unicode confusables          |
+| Optional AI layer   | Plain-English explanation for a non-technical recipient           |
+
+Every external dependency in the project follows the same rule: it's optional to the
+process. The AI layer, the Python service, and the Slack webhook each have their own
+timeout and degrade independently — the app works regardless, and tells you plainly
+when something is unavailable rather than failing silently or hard-crashing. No part
+of the core product requires an API key.
+
+I also used a local agentic setup running Claude to help with parts of the
+implementation, on a tight, mostly-solo timeline (realistically 30–40 hours before the
+deadline, hence the last-minute submission). The value there wasn't in generating
+code — it's fast and confident, and it will just as confidently hand you a DKIM check
+that penalizes `google.com` — it was in having enough judgment to test what it gave me
+against reality and throw out the parts that didn't hold up.
 
 ## Installation
 
@@ -158,7 +216,7 @@ Slack (or Discord/Mattermost) incoming-webhook URL.
 
 1. **Open the money shot first: go to `/lab`** and click **Run adversarial red-team**.
    Watch PhishLens attack its own detector and drive a Critical (93) phishing email down
-   to Low (0) step by step, then read the hardening report showing which evasion it
+   toward Low step by step, then read the hardening report showing which evasion it
    already defeats and why the rest of the product's layers exist. This is the "sit up"
    moment.
 2. Go to `/` and click a sample button to load a realistic message, or paste your own —
@@ -206,6 +264,24 @@ python-service/
   requirements.txt
 ```
 
+## Challenges I ran into
+
+- **Invisible characters broke the build more than once.** Zero-width Unicode
+  characters ended up inside `adversary.ts` and, at one point, in a commit message —
+  while building a tool whose whole job is detecting invisible Unicode. Tracking them
+  down meant reaching for `od -c` and converting them to explicit escapes by hand.
+- **A stale in-memory cache 404'd real scans.** Incident reports failed for scans that
+  clearly existed on disk, because Next.js gives the API route and the page their own
+  separate module instances — each with its own copy of the in-memory cache. Invisible
+  in every automated test; it only ever surfaced by actually clicking the report link.
+- **False positives, not missed detections, were the hardest problem to solve.**
+  - The DKIM check docked points from `google.com`, because Google uses custom DKIM
+    selectors and probing the common ones found nothing.
+  - The typo-detection check flagged GitHub's real newsletter domain as an
+    impersonation of GitLab — a two-character edit distance was enough to trip it.
+  - Mixed-script detection tested the whole hostname at once, so *any* non-Latin
+    domain on a `.com` TLD looked suspicious, purely because `com` itself is Latin.
+
 ## Known limitations
 
 Being upfront about these rather than papering over them:
@@ -242,14 +318,62 @@ Being upfront about these rather than papering over them:
   single-source abuse of a public demo URL; it isn't a substitute for a real
   rate limiter (e.g. Upstash/Redis) in production.
 
-## Roadmap
+## Accomplishments I'm proud of
 
+- **The Red-Team Lab is my favorite part of this project.** It isn't an animation —
+  it runs a real evasion operator against the live score and only keeps a step if it
+  actually lowers the score, which means it can legitimately fail to evade a message
+  that's written well. On the demo sample it drives a Critical email from 93 down to 0
+  in a handful of steps, then re-scores the fully-evaded result against the hardened
+  detector to show exactly which attacks are already dead.
+- **Building the Lab changed the direction of the project more than once.** Unicode
+  normalization exists in the matcher today specifically because the adversary
+  exploited its absence. The feature built to test the tool ended up improving the
+  tool — that's the part of this project I'd point to first.
+- **Whole-script confusables detection that beats the library it's built on**,
+  hand-verified against a set of known attack domains and legitimate non-Latin
+  domains — including Cyrillic and Chinese IDNs — with no false positives or false
+  negatives either way.
+- **I hunted down every false positive by hand and can name every single one** — the
+  Google DKIM case, the GitHub/GitLab typo collision, and the whole-hostname
+  mixed-script bug are all in the Challenges section above, not swept under the rug.
+- **Being honest about limitations**, in this README and in the demo, came harder to
+  me than building the features did — where the heuristics break, why header
+  forensics needs the raw `.eml`, why the DKIM signal is informational instead of
+  scored.
+
+## What we learned
+
+- **Adversarial testing is a design tool, not just a QA phase.** The Red-Team Lab
+  started as a planned demo feature and ended up rewriting the matcher and justifying
+  three more layers of the product. Anything that reliably finds your blind spots
+  should change what you're building, not just how you test it.
+- **"Couldn't determine" and "checked and clean" are different values**, and
+  collapsing them is one of the more common ways security tooling quietly misleads
+  people. Keeping that line clear shaped a good chunk of the Python service.
+- **Unicode is far more complex than I expected going in.** I assumed homograph
+  detection was basically a regex problem. By the end I'd read most of the relevant
+  Unicode security specs to understand the gap between mixed-script and whole-script
+  confusables, punycode, zero-width injection, and normalization.
+- **Directing an LLM well is mostly about knowing what to reject.** It's fast and
+  confident, and it will just as confidently hand you a DKIM check that penalizes
+  `google.com`. The value wasn't in the code it generated — it was in having enough
+  judgment to test the output for real and throw parts of it away.
+
+## What's next for PhishLens
+
+- A semantic evasion operator in the Lab — using an LLM to paraphrase instead of a
+  substitution table, to stress-test a much harder adversary against the detector
+- An auto-hardening mode, where the Lab proposes matcher changes itself and shows
+  before/after detection rates across a corpus — closing the loop from "found the
+  weakness" to "fixed it"
 - Real inbox integration (Gmail/Outlook add-in) instead of copy-paste / file upload
-- Persistent shared database + auth instead of a local JSON store
 - A trained phishing classifier in the Python layer (`ml_phishing_probability` is
   already in the response contract, currently always `null`)
-- Attachment content scanning, not just filename heuristics
+- Persistent shared database + auth instead of a local JSON store, and a real rate
+  limiter — the two things that actually close the gap between a dev demo and a real
+  deployment
 
 ## Team
 
-[Ivan S.](https://linkedin.com/in/ivan-stashchak)
+[Ivan S.](https://linkedin.com/in/ivan-stashchak) — solo build, first hackathon.
